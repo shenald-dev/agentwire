@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>agentwire — DevTools for AI Agents</title>
+  <style>
+    :root {
+      --bg-dark: #0a0d14;
+      --bg-surface: #101522;
+      --bg-card: #151b2d;
+      --bg-hover: #1c243c;
+      --border: #232c45;
+      --text: #e2e8f0;
+      --text-muted: #8492a6;
+      --accent-cyan: #00f0ff;
+      --accent-purple: #8b5cf6;
+      --accent-pink: #ff007f;
+      --accent-green: #00ff88;
+      --accent-yellow: #facc15;
+      --accent-red: #ef4444;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text);
+      font-family: var(--font-sans);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Top Nav */
+    header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 54px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-badge {
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+      color: #000;
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    .stats {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 0.85rem;
+    }
+
+    .stat-pill {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-value {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--accent-cyan);
+    }
+
+    /* Main Grid */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 420px 1fr 340px;
+      overflow: hidden;
+    }
+
+    /* Column 1: Timeline & Waterfall */
+    .timeline-col {
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .col-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .events-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .event-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+
+    .event-card:hover {
+      background: var(--bg-hover);
+      border-color: #3b4668;
+    }
+
+    .event-card.active {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.15);
+    }
+
+    .event-card.paused {
+      border-color: var(--accent-yellow);
+      animation: pulse-border 1.5s infinite;
+    }
+
+    @keyframes pulse-border {
+      0% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.4); }
+      70% { box-shadow: 0 0 0 6px rgba(250, 204, 21, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0); }
+    }
+
+    .event-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .event-kind {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 0.68rem;
+    }
+
+    .kind-tool_call { background: rgba(0, 240, 255, 0.15); color: var(--accent-cyan); }
+    .kind-tool_result { background: rgba(0, 255, 136, 0.15); color: var(--accent-green); }
+    .kind-prompt_turn { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); }
+    .kind-error { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+
+    .event-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .waterfall-bar {
+      height: 4px;
+      background: #1e2638;
+      border-radius: 2px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+
+    .waterfall-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
+      border-radius: 2px;
+    }
+
+    /* Column 2: Inspector */
+    .inspector-col {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-dark);
+      overflow: hidden;
+    }
+
+    .inspector-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    /* Pause Controller Box */
+    .pause-banner {
+      background: rgba(250, 204, 21, 0.08);
+      border: 1px solid var(--accent-yellow);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .pause-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      color: var(--accent-yellow);
+    }
+
+    .action-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: opacity 0.15s ease;
+    }
+
+    .btn:hover { opacity: 0.9; }
+
+    .btn-resume { background: var(--accent-green); color: #000; }
+    .btn-modify { background: var(--accent-cyan); color: #000; }
+    .btn-abort { background: var(--accent-red); color: #fff; }
+    .btn-branch { background: var(--accent-purple); color: #fff; }
+
+    /* JSON Viewer */
+    pre.json-view {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      overflow-x: auto;
+      color: #94a3b8;
+    }
+
+    /* Column 3: Breakpoints & Time Travel */
+    .sidebar-col {
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 16px;
+      gap: 20px;
+    }
+
+    .section-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .bp-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .bp-pattern {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--accent-cyan);
+    }
+
+    /* Bottom Scrubber */
+    footer {
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border);
+      padding: 8px 20px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .time-travel-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .scrubber {
+      flex: 1;
+      accent-color: var(--accent-cyan);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <span>⚡ agentwire</span>
+      <span class="brand-badge">DevTools</span>
+    </div>
+
+    <div class="stats">
+      <div class="stat-pill">
+        <span>Session:</span>
+        <span class="stat-value" id="session-id">loading...</span>
+      </div>
+      <div class="stat-pill">
+        <span>Total Tokens:</span>
+        <span class="stat-value" id="total-tokens">0 tk</span>
+      </div>
+      <div class="stat-pill">
+        <span>Events:</span>
+        <span class="stat-value" id="event-count">0</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Column 1: Event Waterfall -->
+    <div class="timeline-col">
+      <div class="col-header">
+        <span>Event Waterfall</span>
+        <span id="live-indicator" style="color: var(--accent-green); font-size: 0.7rem;">● LIVE</span>
+      </div>
+      <div class="events-list" id="events-list">
+        <!-- Events populated via JS -->
+      </div>
+    </div>
+
+    <!-- Column 2: Inspector -->
+    <div class="inspector-col">
+      <div class="col-header">
+        <span>Inspection & State</span>
+        <span id="selected-step">No selection</span>
+      </div>
+
+      <div class="inspector-content" id="inspector-content">
+        <p style="color: var(--text-muted); text-align: center; margin-top: 40px;">Select an event on the left to inspect payload, tokens, and trace.</p>
+      </div>
+    </div>
+
+    <!-- Column 3: Breakpoints & Branches -->
+    <div class="sidebar-col">
+      <div>
+        <div class="section-title">Active Breakpoints</div>
+        <div id="breakpoints-list">
+          <div class="bp-item">
+            <div>
+              <div class="bp-pattern">tool: bash / execute</div>
+              <small style="color: var(--text-muted);">action: pause</small>
+            </div>
+            <span style="color: var(--accent-green);">ON</span>
+          </div>
+          <div class="bp-item">
+            <div>
+              <div class="bp-pattern">args: /rm\s+-rf/</div>
+              <small style="color: var(--text-muted);">action: pause</small>
+            </div>
+            <span style="color: var(--accent-green);">ON</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Time-Travel Branches</div>
+        <div id="branches-list">
+          <small style="color: var(--text-muted);">No branches created yet. Select any past step and click "Branch from Step" to fork execution.</small>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <span class="time-travel-label">⏪ Time-Travel Scrubber:</span>
+    <input type="range" class="scrubber" id="time-scrubber" min="0" max="0" value="0">
+    <button class="btn btn-branch" id="btn-branch-current" style="padding: 4px 10px; font-size: 0.75rem;">Branch Here</button>
+  </footer>
+
+  <script>
+    let events = [];
+    let selectedIndex = -1;
+    let currentSession = null;
+
+    // Connect to Server-Sent Events (SSE)
+    const eventSource = new EventSource('/api/events');
+
+    eventSource.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'init') {
+          currentSession = msg.session;
+          events = msg.session.events || [];
+          renderAll();
+        } else if (msg.type === 'event') {
+          events.push(msg.data);
+          renderAll();
+          if (selectedIndex === -1 || selectedIndex === events.length - 2) {
+            selectEvent(events.length - 1);
+          }
+        } else if (msg.type === 'breakpoint_hit') {
+          const ev = events.find(x => x.id === msg.data.event?.id);
+          if (ev) ev.paused = true;
+          renderAll();
+          selectEvent(events.findIndex(x => x.id === msg.data.event?.id));
+        } else if (msg.type === 'breakpoint_resumed') {
+          const ev = events.find(x => x.paused);
+          if (ev) ev.paused = false;
+          renderAll();
+        }
+      } catch (err) {
+        console.error('SSE Error:', err);
+      }
+    };
+
+    function renderAll() {
+      document.getElementById('event-count').textContent = events.length;
+      const totalTokens = events.reduce((sum, ev) => sum + (ev.metrics?.totalEstimatedTokens || 0), 0);
+      document.getElementById('total-tokens').textContent = totalTokens > 1000 ? `${(totalTokens/1000).toFixed(1)}k tk` : `${totalTokens} tk`;
+      if (currentSession) {
+        document.getElementById('session-id').textContent = currentSession.sessionId || 'active';
+      }
+
+      // Update Scrubber
+      const scrubber = document.getElementById('time-scrubber');
+      scrubber.max = Math.max(0, events.length - 1);
+      scrubber.value = selectedIndex >= 0 ? selectedIndex : events.length - 1;
+
+      // Render Waterfall List
+      const listEl = document.getElementById('events-list');
+      listEl.innerHTML = '';
+
+      events.forEach((ev, idx) => {
+        const card = document.createElement('div');
+        card.className = `event-card ${idx === selectedIndex ? 'active' : ''} ${ev.paused ? 'paused' : ''}`;
+        card.onclick = () => selectEvent(idx);
+
+        const fillWidth = Math.min(100, Math.max(5, (ev.metrics?.totalEstimatedTokens || 10) / 20));
+
+        card.innerHTML = `
+          <div class="event-meta">
+            <span class="event-kind kind-${ev.kind}">${ev.kind.toUpperCase()}</span>
+            <span>${ev.metrics?.totalEstimatedTokens || 0} tk</span>
+          </div>
+          <div class="event-title">${escapeHtml(ev.summary || 'Event')}</div>
+          <div class="waterfall-bar">
+            <div class="waterfall-fill" style="width: ${fillWidth}%;"></div>
+          </div>
+        `;
+        listEl.appendChild(card);
+      });
+    }
+
+    function selectEvent(idx) {
+      if (idx < 0 || idx >= events.length) return;
+      selectedIndex = idx;
+      const ev = events[idx];
+
+      document.getElementById('selected-step').textContent = `Step #${idx} (${ev.kind})`;
+
+      const contentEl = document.getElementById('inspector-content');
+      let html = '';
+
+      if (ev.paused) {
+        html += `
+          <div class="pause-banner">
+            <div class="pause-header">
+              <span>⏸️ BREAKPOINT HIT — Execution Paused</span>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text);">Agent is attempting to execute this tool call. You can approve, modify parameters, or abort.</p>
+            <div class="action-row">
+              <button class="btn btn-resume" onclick="resumeAction('continue')">▶ Resume</button>
+              <button class="btn btn-abort" onclick="resumeAction('abort')">⏹ Abort Action</button>
+            </div>
+          </div>
+        `;
+      }
+
+      html += `
+        <h3 style="font-size: 1rem; margin-bottom: 12px;">${escapeHtml(ev.summary)}</h3>
+        <div style="display: flex; gap: 10px; margin-bottom: 14px; font-size: 0.85rem;">
+          <span class="stat-pill">Tokens: <b style="color: var(--accent-cyan);">${ev.metrics?.totalEstimatedTokens || 0}</b></span>
+          <span class="stat-pill">Source: <b>${ev.source}</b></span>
+          <span class="stat-pill">Timestamp: <b>${new Date(ev.timestamp).toLocaleTimeString()}</b></span>
+        </div>
+        <div class="section-title">Event Payload:</div>
+        <pre class="json-view">${escapeHtml(JSON.stringify(ev.payload, null, 2))}</pre>
+      `;
+
+      contentEl.innerHTML = html;
+      renderAll();
+    }
+
+    function resumeAction(action) {
+      fetch('/api/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+    }
+
+    document.getElementById('time-scrubber').oninput = (e) => {
+      selectEvent(parseInt(e.target.value, 10));
+    };
+
+    document.getElementById('btn-branch-current').onclick = () => {
+      if (selectedIndex < 0) return;
+      fetch('/api/branch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stepIndex: selectedIndex, description: `Forked from step #${selectedIndex}` })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok) {
+          alert(`Created branch ${data.branch.branchId} from step #${selectedIndex}`);
+          events = events.slice(0, selectedIndex + 1);
+          renderAll();
+        }
+      });
+    };
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+  </script>
+</body>
+</html>

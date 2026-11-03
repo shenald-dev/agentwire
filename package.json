@@ -1,0 +1,60 @@
+{
+  "name": "agentwire",
+  "version": "0.1.0",
+  "description": "The Wireshark & Live Time-Travel Debugger for AI Agents & MCP Workflows",
+  "keywords": [
+    "ai-agents",
+    "mcp",
+    "debugger",
+    "devtools",
+    "wiretap",
+    "time-travel",
+    "llm",
+    "cursor",
+    "claude",
+    "observability",
+    "token-waterfall",
+    "proxy"
+  ],
+  "author": "shenald-dev",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shenald-dev/agentwire.git"
+  },
+  "homepage": "https://github.com/shenald-dev/agentwire#readme",
+  "bugs": {
+    "url": "https://github.com/shenald-dev/agentwire/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "agentwire": "./bin/agentwire.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "public",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "start": "node ./bin/agentwire.js",
+    "test": "node --test tests/tokens.test.js tests/session.test.js tests/breakpoints.test.js tests/mcp-proxy.test.js tests/web-server.test.js tests/cli.test.js",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
