@@ -62,7 +62,10 @@ export class BreakpointEngine extends EventEmitter {
    * Evaluates an incoming event against all enabled rules.
    * If a rule matches and action is 'pause', returns a Promise that pauses execution.
    */
-  public async evaluate(event: WireEvent): Promise<{
+  public async evaluate(
+    event: WireEvent,
+    contextUsedPct = 0
+  ): Promise<{
     shouldPause: boolean;
     modifiedPayload?: any;
     aborted?: boolean;
@@ -75,7 +78,6 @@ export class BreakpointEngine extends EventEmitter {
 
       switch (rule.type) {
         case 'tool_name': {
-          // Check if event is a tool call and matches the pattern
           const toolName = event.payload?.name || event.payload?.tool;
           if (toolName && toolName.toLowerCase() === rule.pattern.toLowerCase()) {
             matched = true;
@@ -84,7 +86,6 @@ export class BreakpointEngine extends EventEmitter {
         }
 
         case 'tool_arg_regex': {
-          // Check if any argument matches the regex
           const argsStr = JSON.stringify(event.payload?.args || event.payload?.arguments || event.payload || {});
           try {
             const regex = new RegExp(rule.pattern, 'i');
@@ -101,6 +102,60 @@ export class BreakpointEngine extends EventEmitter {
           const threshold = parseInt(rule.pattern, 10);
           if (!isNaN(threshold) && event.metrics.totalEstimatedTokens >= threshold) {
             matched = true;
+          }
+          break;
+        }
+
+        case 'context_budget_pct': {
+          const thresholdPct = parseFloat(rule.pattern);
+          if (!isNaN(thresholdPct) && contextUsedPct >= thresholdPct) {
+            matched = true;
+          }
+          break;
+        }
+
+        case 'error_status': {
+          if (
+            event.kind === 'error' ||
+            event.payload?.isError === true ||
+            event.payload?.error !== undefined ||
+            /error|exception|failed/i.test(event.summary)
+          ) {
+            matched = true;
+          }
+          break;
+        }
+
+        case 'secret_leak': {
+          if (event.securityFindings?.some((f) => f.category === 'secret_leak')) {
+            matched = true;
+          }
+          break;
+        }
+
+        case 'path_traversal': {
+          if (event.securityFindings?.some((f) => f.category === 'path_traversal')) {
+            matched = true;
+          }
+          break;
+        }
+
+        case 'infinite_loop': {
+          if (event.loopAlert !== undefined && event.loopAlert !== null) {
+            matched = true;
+          }
+          break;
+        }
+
+        case 'custom_filter': {
+          try {
+            const regex = new RegExp(rule.pattern, 'i');
+            const fullStr = JSON.stringify(event);
+            if (regex.test(fullStr)) {
+              matched = true;
+            }
+          } catch {
+            // Ignore
           }
           break;
         }

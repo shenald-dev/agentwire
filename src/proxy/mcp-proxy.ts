@@ -8,35 +8,43 @@ import * as readline from 'node:readline';
 import { EventEmitter } from 'node:events';
 import { WireSession } from '../core/session.js';
 import { BreakpointEngine } from '../core/breakpoints.js';
+import { MockEngine } from '../core/mock-engine.js';
 import { WireEvent } from '../types.js';
 
 export interface McpProxyOptions {
   session: WireSession;
   breakpointEngine: BreakpointEngine;
+  mockEngine?: MockEngine;
   command: string;
   args?: string[];
   cwd?: string;
   env?: NodeJS.ProcessEnv;
+  stepMode?: boolean;
 }
 
 export class McpProxy extends EventEmitter {
   private session: WireSession;
   private breakpointEngine: BreakpointEngine;
+  private mockEngine?: MockEngine;
   private childProcess?: ChildProcess;
   private command: string;
   private args: string[];
   private cwd?: string;
   private env?: NodeJS.ProcessEnv;
+  private stepMode: boolean;
   private isRunning = false;
+  private agentOutput?: NodeJS.WritableStream;
 
   constructor(options: McpProxyOptions) {
     super();
     this.session = options.session;
     this.breakpointEngine = options.breakpointEngine;
+    this.mockEngine = options.mockEngine;
     this.command = options.command;
     this.args = options.args || [];
     this.cwd = options.cwd;
     this.env = options.env;
+    this.stepMode = options.stepMode || false;
   }
 
   /**
@@ -48,6 +56,7 @@ export class McpProxy extends EventEmitter {
   ): void {
     if (this.isRunning) return;
     this.isRunning = true;
+    this.agentOutput = output;
 
     this.session.recordEvent('session_start', 'system', `Proxying MCP Server: ${this.command} ${this.args.join(' ')}`, {
       command: this.command,
@@ -144,13 +153,59 @@ export class McpProxy extends EventEmitter {
         arguments: args
       });
 
-      // Breakpoint check
-      const evalResult = await this.breakpointEngine.evaluate(event);
+      // 1. Check Mock Engine
+      if (this.mockEngine) {
+        const mock = this.mockEngine.match(toolName, args);
+        if (mock) {
+          event.isMocked = true;
+          const mockResultMsg = {
+            jsonrpc: '2.0',
+            id: msg.id,
+            result: mock.response
+          };
+          this.session.recordEvent('tool_result', 'proxy', `Mock response for ${toolName}`, mockResultMsg);
+
+          // Return mock directly to agent without invoking child tool
+          if (this.agentOutput) {
+            this.agentOutput.write(JSON.stringify(mockResultMsg) + '\n');
+          }
+          return;
+        }
+      }
+
+      // 2. Breakpoint / Step Mode check
+      const cost = this.session.getCostEvaluation();
+      let evalResult = await this.breakpointEngine.evaluate(event, cost.contextUsedPct);
+
+      // In step mode, pause on every tool call unless already handled
+      if (this.stepMode && !evalResult.shouldPause) {
+        const stepRule = {
+          id: 'step_mode',
+          enabled: true,
+          type: 'tool_name' as const,
+          pattern: toolName,
+          action: 'pause' as const,
+          description: 'Step-through mode pause'
+        };
+        const tempEngine = new BreakpointEngine([stepRule]);
+        evalResult = await tempEngine.evaluate(event, cost.contextUsedPct);
+      }
 
       if (evalResult.aborted) {
-        this.session.recordEvent('error', 'proxy', `Tool call blocked by breakpoint rule: ${evalResult.hitRule?.pattern}`, {
+        this.session.recordEvent('error', 'proxy', `Tool call blocked by rule: ${evalResult.hitRule?.pattern}`, {
           blockedMessage: msg
         });
+        const errorResponse = {
+          jsonrpc: '2.0',
+          id: msg.id,
+          error: {
+            code: -32000,
+            message: `Execution blocked by agentwire breakpoint rule [${evalResult.hitRule?.pattern}]`
+          }
+        };
+        if (this.agentOutput) {
+          this.agentOutput.write(JSON.stringify(errorResponse) + '\n');
+        }
         return;
       }
 
@@ -181,6 +236,13 @@ export class McpProxy extends EventEmitter {
     } else if (msg.error) {
       this.session.recordEvent('error', 'tool', `MCP Error: ${msg.error.message || 'unknown'}`, msg.error);
     }
+  }
+
+  /**
+   * Enables or disables step-through mode on the fly
+   */
+  public setStepMode(enabled: boolean): void {
+    this.stepMode = enabled;
   }
 
   /**

@@ -1,6 +1,6 @@
 /**
  * agentwire - DevTools Web Server
- * Real-time SSE streaming, session introspection, and breakpoint control
+ * Real-time SSE streaming, session introspection, breakpoint & mock controls, and export formats
  */
 
 import * as http from 'node:http';
@@ -9,6 +9,10 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WireSession } from '../core/session.js';
 import { BreakpointEngine } from '../core/breakpoints.js';
+import { MockEngine } from '../core/mock-engine.js';
+import { exportToMarkdown } from '../exporters/markdown.js';
+import { exportToHar } from '../exporters/har.js';
+import { TrajectoryDiff } from '../core/diff-engine.js';
 import { WireEvent } from '../types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -17,6 +21,7 @@ const __dirname = path.dirname(__filename);
 export interface WebServerOptions {
   session: WireSession;
   breakpointEngine: BreakpointEngine;
+  mockEngine?: MockEngine;
   port?: number;
   publicDir?: string;
 }
@@ -25,6 +30,7 @@ export class WebServer {
   private server?: http.Server;
   private session: WireSession;
   private breakpointEngine: BreakpointEngine;
+  private mockEngine: MockEngine;
   private port: number;
   private publicDir: string;
   private sseClients: Set<http.ServerResponse> = new Set();
@@ -32,12 +38,13 @@ export class WebServer {
   constructor(options: WebServerOptions) {
     this.session = options.session;
     this.breakpointEngine = options.breakpointEngine;
+    this.mockEngine = options.mockEngine || new MockEngine();
     this.port = options.port || 4400;
     this.publicDir = options.publicDir || path.resolve(__dirname, '../../public');
 
     // Subscribe to session events and broadcast via SSE
     this.session.on('event', (event: WireEvent) => {
-      this.broadcastSse({ type: 'event', data: event });
+      this.broadcastSse({ type: 'event', data: event, cost: this.session.getCostEvaluation() });
     });
 
     this.breakpointEngine.on('hit', (hit) => {
@@ -46,6 +53,10 @@ export class WebServer {
 
     this.breakpointEngine.on('resumed', (data) => {
       this.broadcastSse({ type: 'breakpoint_resumed', data });
+    });
+
+    this.breakpointEngine.on('alert', (alert) => {
+      this.broadcastSse({ type: 'breakpoint_alert', data: alert });
     });
   }
 
@@ -134,6 +145,48 @@ export class WebServer {
       return;
     }
 
+    if (pathname === '/api/breakpoints' && method === 'DELETE') {
+      this.readJsonBody(req, (data) => {
+        const ok = this.breakpointEngine.removeRule(data.id);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok, rules: this.breakpointEngine.getRules() }));
+      });
+      return;
+    }
+
+    if (pathname === '/api/breakpoints/toggle' && method === 'POST') {
+      this.readJsonBody(req, (data) => {
+        const ok = this.breakpointEngine.toggleRule(data.id, data.enabled);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok, rules: this.breakpointEngine.getRules() }));
+      });
+      return;
+    }
+
+    if (pathname === '/api/mocks' && method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(this.mockEngine.getMocks()));
+      return;
+    }
+
+    if (pathname === '/api/mocks' && method === 'POST') {
+      this.readJsonBody(req, (data) => {
+        this.mockEngine.addMock(data);
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, mocks: this.mockEngine.getMocks() }));
+      });
+      return;
+    }
+
+    if (pathname === '/api/mocks' && method === 'DELETE') {
+      this.readJsonBody(req, (data) => {
+        const ok = this.mockEngine.removeMock(data.id);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok, mocks: this.mockEngine.getMocks() }));
+      });
+      return;
+    }
+
     if (pathname === '/api/resume' && method === 'POST') {
       this.readJsonBody(req, (data) => {
         const { hitId, action, payload } = data;
@@ -161,6 +214,38 @@ export class WebServer {
           res.end(JSON.stringify({ ok: false, error: err.message }));
         }
       });
+      return;
+    }
+
+    if (pathname === '/api/diff' && method === 'POST') {
+      this.readJsonBody(req, (data) => {
+        const otherSession = data.session || data;
+        const diff = TrajectoryDiff.compare(this.session.exportJson(), otherSession);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(diff));
+      });
+      return;
+    }
+
+    // Export formats
+    if (pathname === '/api/export/markdown' && method === 'GET') {
+      const model = url.searchParams.get('model') || this.session.modelKey;
+      const md = exportToMarkdown(this.session.exportJson(), model);
+      res.writeHead(200, {
+        'Content-Type': 'text/markdown; charset=utf-8',
+        'Content-Disposition': `attachment; filename="agentwire-${this.session.id}.md"`
+      });
+      res.end(md);
+      return;
+    }
+
+    if (pathname === '/api/export/har' && method === 'GET') {
+      const har = exportToHar(this.session.exportJson());
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Disposition': `attachment; filename="agentwire-${this.session.id}.har"`
+      });
+      res.end(JSON.stringify(har, null, 2));
       return;
     }
 

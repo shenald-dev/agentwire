@@ -13,6 +13,10 @@ import {
   BreakpointRule
 } from '../types.js';
 import { computeEventMetrics } from '../utils/tokens.js';
+import { calculateSessionCost, CostEvaluation } from '../utils/cost.js';
+import { SecurityAuditor } from './security.js';
+import { LoopDetector } from './loop-detector.js';
+import { MockRule } from './mock-engine.js';
 
 export interface SessionEvents {
   event: (event: WireEvent) => void;
@@ -30,6 +34,9 @@ export class WireSession extends EventEmitter {
   private branches: TimeTravelBranch[] = [];
   private totalTokens = 0;
   private breakpoints: BreakpointRule[] = [];
+  private mocks: MockRule[] = [];
+  private loopDetector: LoopDetector = new LoopDetector();
+  public modelKey = 'default';
 
   constructor(agentName = 'Agent Session', id?: string) {
     super();
@@ -40,7 +47,7 @@ export class WireSession extends EventEmitter {
   }
 
   /**
-   * Records a new wire event into the active trajectory
+   * Records a new wire event into the active trajectory with automated security & loop analysis
    */
   public recordEvent(
     kind: EventKind,
@@ -54,6 +61,9 @@ export class WireSession extends EventEmitter {
     this.totalTokens += metrics.totalEstimatedTokens;
     this.updatedAt = Date.now();
 
+    // Security Audit
+    const securityFindings = SecurityAuditor.audit(payload);
+
     const event: WireEvent = {
       id: `ev_${stepIndex}_${randomUUID().slice(0, 6)}`,
       stepIndex,
@@ -63,8 +73,17 @@ export class WireSession extends EventEmitter {
       summary,
       payload,
       metrics,
-      metadata
+      metadata,
+      securityFindings: securityFindings.length > 0 ? securityFindings : undefined
     };
+
+    // Loop Detection for tool calls
+    if (kind === 'tool_call') {
+      const loopAlert = this.loopDetector.evaluate(event);
+      if (loopAlert) {
+        event.loopAlert = loopAlert;
+      }
+    }
 
     this.events.push(event);
     this.emit('event', event);
@@ -93,6 +112,13 @@ export class WireSession extends EventEmitter {
   }
 
   /**
+   * Computes real-time financial and context window analytics
+   */
+  public getCostEvaluation(): CostEvaluation {
+    return calculateSessionCost({ totalEstimatedTokens: this.totalTokens }, this.modelKey);
+  }
+
+  /**
    * Time-Travel: Rewinds to stepIndex, creates an isolated branch,
    * allowing the agent/user to replay or alter history from that point.
    */
@@ -118,6 +144,7 @@ export class WireSession extends EventEmitter {
       0
     );
 
+    this.loopDetector.reset();
     this.emit('branch', branch);
     return branch;
   }
@@ -141,6 +168,17 @@ export class WireSession extends EventEmitter {
   }
 
   /**
+   * Set active mock rules
+   */
+  public setMocks(mocks: MockRule[]): void {
+    this.mocks = [...mocks];
+  }
+
+  public getMocks(): MockRule[] {
+    return [...this.mocks];
+  }
+
+  /**
    * Serializes the complete session into a portable JSON structure
    */
   public exportJson(): SerializedSession {
@@ -153,7 +191,9 @@ export class WireSession extends EventEmitter {
       totalTokens: this.totalTokens,
       events: this.events,
       branches: this.branches,
-      breakpoints: this.breakpoints
+      breakpoints: this.breakpoints,
+      mocks: this.mocks,
+      costEvaluation: this.getCostEvaluation()
     };
   }
 
@@ -168,6 +208,7 @@ export class WireSession extends EventEmitter {
     session.events = [...data.events];
     session.branches = [...(data.branches || [])];
     session.breakpoints = [...(data.breakpoints || [])];
+    session.mocks = [...(data.mocks || [])];
     return session;
   }
 }

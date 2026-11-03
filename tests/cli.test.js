@@ -31,6 +31,9 @@ test('CLI: --help renders command manual and options', async () => {
   assert.strictEqual(code, 0);
   assert.ok(stdout.includes('agentwire'));
   assert.ok(stdout.includes('mcp'));
+  assert.ok(stdout.includes('proxy'));
+  assert.ok(stdout.includes('diff'));
+  assert.ok(stdout.includes('report'));
   assert.ok(stdout.includes('inspect'));
   assert.ok(stdout.includes('ui'));
 });
@@ -38,5 +41,5 @@ test('CLI: --help renders command manual and options', async () => {
 test('CLI: --version displays current semver', async () => {
   const { code, stdout } = await runCliCmd(['--version']);
   assert.strictEqual(code, 0);
-  assert.ok(stdout.includes('0.1.0'));
+  assert.ok(stdout.includes('0.2.0'));
 });

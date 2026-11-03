@@ -39,26 +39,28 @@
     header {
       background: var(--bg-surface);
       border-bottom: 1px solid var(--border);
-      padding: 10px 20px;
+      padding: 8px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      height: 54px;
+      height: 52px;
+      gap: 12px;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       font-weight: 700;
       font-size: 1.15rem;
       letter-spacing: -0.5px;
+      white-space: nowrap;
     }
 
     .brand-badge {
       background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
       color: #000;
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       font-weight: 800;
       padding: 2px 6px;
       border-radius: 4px;
@@ -68,18 +70,19 @@
     .stats {
       display: flex;
       align-items: center;
-      gap: 16px;
-      font-size: 0.85rem;
+      gap: 10px;
+      font-size: 0.82rem;
+      flex-wrap: wrap;
     }
 
     .stat-pill {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      padding: 4px 10px;
-      border-radius: 20px;
+      padding: 3px 8px;
+      border-radius: 16px;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
     }
 
     .stat-value {
@@ -88,11 +91,17 @@
       color: var(--accent-cyan);
     }
 
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
     /* Main Grid */
     main {
       flex: 1;
       display: grid;
-      grid-template-columns: 420px 1fr 340px;
+      grid-template-columns: 400px 1fr 340px;
       overflow: hidden;
     }
 
@@ -106,15 +115,64 @@
     }
 
     .col-header {
-      padding: 12px 16px;
+      padding: 10px 14px;
       border-bottom: 1px solid var(--border);
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       text-transform: uppercase;
       font-weight: 700;
       color: var(--text-muted);
       display: flex;
       justify-content: space-between;
       align-items: center;
+    }
+
+    .filter-bar {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: rgba(16, 21, 34, 0.7);
+    }
+
+    .search-input {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 10px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      outline: none;
+      width: 100%;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    .filter-chips {
+      display: flex;
+      gap: 5px;
+      overflow-x: auto;
+    }
+
+    .chip {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2px 8px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .chip.active {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+      font-weight: 600;
     }
 
     .events-list {
@@ -130,7 +188,7 @@
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 10px;
+      padding: 8px 10px;
       cursor: pointer;
       transition: all 0.15s ease;
       position: relative;
@@ -177,9 +235,30 @@
     .kind-tool_result { background: rgba(0, 255, 136, 0.15); color: var(--accent-green); }
     .kind-prompt_turn { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); }
     .kind-error { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+    .kind-breakpoint_hit { background: rgba(250, 204, 21, 0.15); color: var(--accent-yellow); }
+
+    .tag-security {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--accent-red);
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+      margin-left: 4px;
+    }
+
+    .tag-loop {
+      background: rgba(250, 204, 21, 0.2);
+      color: var(--accent-yellow);
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+      margin-left: 4px;
+    }
 
     .event-title {
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
@@ -190,7 +269,7 @@
       height: 4px;
       background: #1e2638;
       border-radius: 2px;
-      margin-top: 8px;
+      margin-top: 6px;
       overflow: hidden;
     }
 
@@ -211,19 +290,19 @@
     .inspector-content {
       flex: 1;
       overflow-y: auto;
-      padding: 20px;
+      padding: 16px;
     }
 
-    /* Pause Controller Box */
+    /* Alerts and Pause Banner */
     .pause-banner {
       background: rgba(250, 204, 21, 0.08);
       border: 1px solid var(--accent-yellow);
       border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 20px;
+      padding: 14px;
+      margin-bottom: 16px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
     }
 
     .pause-header {
@@ -234,21 +313,31 @@
       color: var(--accent-yellow);
     }
 
+    .alert-card {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid var(--accent-red);
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 12px;
+      font-size: 0.82rem;
+    }
+
     .action-row {
       display: flex;
-      gap: 10px;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     .btn {
-      padding: 8px 16px;
-      border-radius: 6px;
+      padding: 6px 14px;
+      border-radius: 5px;
       font-weight: 600;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       border: none;
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       transition: opacity 0.15s ease;
     }
 
@@ -258,36 +347,53 @@
     .btn-modify { background: var(--accent-cyan); color: #000; }
     .btn-abort { background: var(--accent-red); color: #fff; }
     .btn-branch { background: var(--accent-purple); color: #fff; }
+    .btn-ghost { background: var(--bg-card); color: var(--text); border: 1px solid var(--border); }
 
-    /* JSON Viewer */
     pre.json-view {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 14px;
+      padding: 12px;
       font-family: var(--font-mono);
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       overflow-x: auto;
       color: #94a3b8;
     }
 
-    /* Column 3: Breakpoints & Time Travel */
+    textarea.code-edit {
+      width: 100%;
+      height: 140px;
+      background: #0d121f;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--accent-cyan);
+      outline: none;
+      resize: vertical;
+    }
+
+    /* Column 3: Rules & Sidebar */
     .sidebar-col {
       background: var(--bg-surface);
       border-left: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       overflow-y: auto;
-      padding: 16px;
-      gap: 20px;
+      padding: 14px;
+      gap: 16px;
     }
 
     .section-title {
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       text-transform: uppercase;
       font-weight: 700;
       color: var(--text-muted);
-      margin-bottom: 10px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
     .bp-item {
@@ -303,23 +409,46 @@
 
     .bp-pattern {
       font-family: var(--font-mono);
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       color: var(--accent-cyan);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .form-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .form-input, .form-select {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 8px;
+      color: var(--text);
+      font-size: 0.8rem;
+      outline: none;
     }
 
     /* Bottom Scrubber */
     footer {
       background: var(--bg-surface);
       border-top: 1px solid var(--border);
-      padding: 8px 20px;
-      height: 48px;
+      padding: 6px 16px;
+      height: 44px;
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 14px;
     }
 
     .time-travel-label {
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       font-weight: 700;
       color: var(--text-muted);
       white-space: nowrap;
@@ -336,7 +465,7 @@
   <header>
     <div class="brand">
       <span>⚡ agentwire</span>
-      <span class="brand-badge">DevTools</span>
+      <span class="brand-badge">v0.2.0</span>
     </div>
 
     <div class="stats">
@@ -345,23 +474,49 @@
         <span class="stat-value" id="session-id">loading...</span>
       </div>
       <div class="stat-pill">
-        <span>Total Tokens:</span>
+        <span>Tokens:</span>
         <span class="stat-value" id="total-tokens">0 tk</span>
+      </div>
+      <div class="stat-pill">
+        <span>Est. Cost:</span>
+        <span class="stat-value" id="est-cost" style="color: var(--accent-green);">$0.000</span>
+      </div>
+      <div class="stat-pill">
+        <span>Context:</span>
+        <span class="stat-value" id="context-gauge">0.0%</span>
       </div>
       <div class="stat-pill">
         <span>Events:</span>
         <span class="stat-value" id="event-count">0</span>
       </div>
     </div>
+
+    <div class="header-actions">
+      <button class="btn btn-ghost" onclick="exportData('markdown')" title="Download Markdown Diagnostic Report">📄 Report</button>
+      <button class="btn btn-ghost" onclick="exportData('har')" title="Export HTTP Archive (HAR 1.2)">🌐 HAR</button>
+      <button class="btn btn-ghost" onclick="exportData('json')" title="Download .agentwire.json Session">💾 JSON</button>
+    </div>
   </header>
 
   <main>
-    <!-- Column 1: Event Waterfall -->
+    <!-- Column 1: Event Waterfall & Search -->
     <div class="timeline-col">
       <div class="col-header">
         <span>Event Waterfall</span>
         <span id="live-indicator" style="color: var(--accent-green); font-size: 0.7rem;">● LIVE</span>
       </div>
+
+      <div class="filter-bar">
+        <input type="text" class="search-input" id="search-filter" placeholder="Search events (tool, args, regex)..." oninput="applyFilters()">
+        <div class="filter-chips">
+          <span class="chip active" data-filter="all" onclick="setKindFilter('all')">All</span>
+          <span class="chip" data-filter="tool_call" onclick="setKindFilter('tool_call')">Tools</span>
+          <span class="chip" data-filter="tool_result" onclick="setKindFilter('tool_result')">Results</span>
+          <span class="chip" data-filter="error" onclick="setKindFilter('error')">Errors</span>
+          <span class="chip" data-filter="breakpoint_hit" onclick="setKindFilter('breakpoint_hit')">Pauses</span>
+        </div>
+      </div>
+
       <div class="events-list" id="events-list">
         <!-- Events populated via JS -->
       </div>
@@ -379,25 +534,48 @@
       </div>
     </div>
 
-    <!-- Column 3: Breakpoints & Branches -->
+    <!-- Column 3: Breakpoints & Mocks -->
     <div class="sidebar-col">
       <div>
-        <div class="section-title">Active Breakpoints</div>
+        <div class="section-title">
+          <span>Active Breakpoints</span>
+          <button class="btn btn-ghost" style="padding: 2px 6px; font-size: 0.7rem;" onclick="toggleAddBp()">+ New</button>
+        </div>
+
+        <!-- Add BP Form (collapsible) -->
+        <div id="add-bp-form" style="display: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-bottom: 10px;">
+          <div class="form-group">
+            <span class="form-label">Rule Type:</span>
+            <select class="form-select" id="new-bp-type">
+              <option value="tool_name">Tool Name</option>
+              <option value="tool_arg_regex">Argument Regex</option>
+              <option value="secret_leak">Secret Leak Guard</option>
+              <option value="path_traversal">Path Traversal Guard</option>
+              <option value="infinite_loop">Loop Guard</option>
+              <option value="token_threshold">Token Threshold</option>
+              <option value="error_status">Error Status</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <span class="form-label">Pattern / Parameter:</span>
+            <input type="text" class="form-input" id="new-bp-pattern" placeholder="e.g. bash or rm -rf">
+          </div>
+          <div class="form-group">
+            <span class="form-label">Action:</span>
+            <select class="form-select" id="new-bp-action">
+              <option value="pause">Pause (Interactive)</option>
+              <option value="alert">Alert Only</option>
+              <option value="block">Block Immediately</option>
+            </select>
+          </div>
+          <div style="display: flex; gap: 6px; margin-top: 8px;">
+            <button class="btn btn-resume" style="flex: 1;" onclick="submitNewBp()">Add Rule</button>
+            <button class="btn btn-ghost" onclick="toggleAddBp()">Cancel</button>
+          </div>
+        </div>
+
         <div id="breakpoints-list">
-          <div class="bp-item">
-            <div>
-              <div class="bp-pattern">tool: bash / execute</div>
-              <small style="color: var(--text-muted);">action: pause</small>
-            </div>
-            <span style="color: var(--accent-green);">ON</span>
-          </div>
-          <div class="bp-item">
-            <div>
-              <div class="bp-pattern">args: /rm\s+-rf/</div>
-              <small style="color: var(--text-muted);">action: pause</small>
-            </div>
-            <span style="color: var(--accent-green);">ON</span>
-          </div>
+          <!-- Breakpoints populated via API -->
         </div>
       </div>
 
@@ -418,8 +596,11 @@
 
   <script>
     let events = [];
+    let breakpoints = [];
     let selectedIndex = -1;
     let currentSession = null;
+    let activeFilterKind = 'all';
+    let searchQuery = '';
 
     // Connect to Server-Sent Events (SSE)
     const eventSource = new EventSource('/api/events');
@@ -430,7 +611,9 @@
         if (msg.type === 'init') {
           currentSession = msg.session;
           events = msg.session.events || [];
+          breakpoints = msg.session.breakpoints || [];
           renderAll();
+          loadBreakpoints();
         } else if (msg.type === 'event') {
           events.push(msg.data);
           renderAll();
@@ -452,10 +635,99 @@
       }
     };
 
+    function loadBreakpoints() {
+      fetch('/api/breakpoints')
+        .then(res => res.json())
+        .then(rules => {
+          breakpoints = rules || [];
+          renderBreakpoints();
+        })
+        .catch(() => {});
+    }
+
+    function renderBreakpoints() {
+      const el = document.getElementById('breakpoints-list');
+      if (breakpoints.length === 0) {
+        el.innerHTML = '<small style="color: var(--text-muted);">No active rules. Click + New to add.</small>';
+        return;
+      }
+      el.innerHTML = '';
+      breakpoints.forEach(bp => {
+        const row = document.createElement('div');
+        row.className = 'bp-item';
+        row.innerHTML = `
+          <div>
+            <div class="bp-pattern">${escapeHtml(bp.pattern || bp.type)}</div>
+            <small style="color: var(--text-muted);">${bp.type} • action: ${bp.action}</small>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button class="btn btn-ghost" style="padding: 2px 5px; font-size: 0.68rem; color: ${bp.enabled ? 'var(--accent-green)' : 'var(--text-muted)'};" onclick="toggleBp('${bp.id}', ${!bp.enabled})">${bp.enabled ? 'ON' : 'OFF'}</button>
+            <button class="btn btn-ghost" style="padding: 2px 5px; font-size: 0.68rem; color: var(--accent-red);" onclick="deleteBp('${bp.id}')">✕</button>
+          </div>
+        `;
+        el.appendChild(row);
+      });
+    }
+
+    function toggleAddBp() {
+      const f = document.getElementById('add-bp-form');
+      f.style.display = f.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function submitNewBp() {
+      const type = document.getElementById('new-bp-type').value;
+      const pattern = document.getElementById('new-bp-pattern').value.trim();
+      const action = document.getElementById('new-bp-action').value;
+      fetch('/api/breakpoints', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, pattern, action, enabled: true })
+      }).then(() => {
+        toggleAddBp();
+        loadBreakpoints();
+      });
+    }
+
+    function toggleBp(id, enabled) {
+      fetch('/api/breakpoints/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, enabled })
+      }).then(() => loadBreakpoints());
+    }
+
+    function deleteBp(id) {
+      fetch('/api/breakpoints', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      }).then(() => loadBreakpoints());
+    }
+
+    function setKindFilter(kind) {
+      activeFilterKind = kind;
+      document.querySelectorAll('.filter-chips .chip').forEach(c => {
+        c.classList.toggle('active', c.getAttribute('data-filter') === kind);
+      });
+      applyFilters();
+    }
+
+    function applyFilters() {
+      searchQuery = document.getElementById('search-filter').value.toLowerCase().trim();
+      renderWaterfall();
+    }
+
     function renderAll() {
       document.getElementById('event-count').textContent = events.length;
       const totalTokens = events.reduce((sum, ev) => sum + (ev.metrics?.totalEstimatedTokens || 0), 0);
       document.getElementById('total-tokens').textContent = totalTokens > 1000 ? `${(totalTokens/1000).toFixed(1)}k tk` : `${totalTokens} tk`;
+      
+      // Cost & Context estimate (Standard $3/1M prompt, $15/1M completion, 128k context)
+      const cost = (totalTokens / 1_000_000) * 5.0;
+      document.getElementById('est-cost').textContent = cost < 0.01 ? `$${cost.toFixed(4)}` : `$${cost.toFixed(2)}`;
+      const ctxPct = Math.min(100, (totalTokens / 128_000) * 100).toFixed(1);
+      document.getElementById('context-gauge').textContent = `${ctxPct}%`;
+
       if (currentSession) {
         document.getElementById('session-id').textContent = currentSession.sessionId || 'active';
       }
@@ -465,20 +737,43 @@
       scrubber.max = Math.max(0, events.length - 1);
       scrubber.value = selectedIndex >= 0 ? selectedIndex : events.length - 1;
 
-      // Render Waterfall List
+      renderWaterfall();
+    }
+
+    function renderWaterfall() {
       const listEl = document.getElementById('events-list');
       listEl.innerHTML = '';
 
-      events.forEach((ev, idx) => {
+      const filtered = events.map((ev, idx) => ({ ev, idx })).filter(({ ev }) => {
+        if (activeFilterKind !== 'all' && ev.kind !== activeFilterKind) return false;
+        if (searchQuery) {
+          const matchStr = `${ev.summary} ${JSON.stringify(ev.payload || {})}`.toLowerCase();
+          if (!matchStr.includes(searchQuery)) return false;
+        }
+        return true;
+      });
+
+      filtered.forEach(({ ev, idx }) => {
         const card = document.createElement('div');
         card.className = `event-card ${idx === selectedIndex ? 'active' : ''} ${ev.paused ? 'paused' : ''}`;
         card.onclick = () => selectEvent(idx);
 
         const fillWidth = Math.min(100, Math.max(5, (ev.metrics?.totalEstimatedTokens || 10) / 20));
 
+        let alertTags = '';
+        if (ev.securityFindings && ev.securityFindings.length > 0) {
+          alertTags += `<span class="tag-security">SEC ALERT</span>`;
+        }
+        if (ev.loopAlert) {
+          alertTags += `<span class="tag-loop">LOOP</span>`;
+        }
+
         card.innerHTML = `
           <div class="event-meta">
-            <span class="event-kind kind-${ev.kind}">${ev.kind.toUpperCase()}</span>
+            <div>
+              <span class="event-kind kind-${ev.kind}">${ev.kind.toUpperCase()}</span>
+              ${alertTags}
+            </div>
             <span>${ev.metrics?.totalEstimatedTokens || 0} tk</span>
           </div>
           <div class="event-title">${escapeHtml(ev.summary || 'Event')}</div>
@@ -506,28 +801,51 @@
             <div class="pause-header">
               <span>⏸️ BREAKPOINT HIT — Execution Paused</span>
             </div>
-            <p style="font-size: 0.85rem; color: var(--text);">Agent is attempting to execute this tool call. You can approve, modify parameters, or abort.</p>
+            <p style="font-size: 0.85rem; color: var(--text);">Agent execution held by agentwire. You can approve as-is, edit arguments below and resume, or abort.</p>
+            <div class="form-group">
+              <span class="form-label">Editable Tool Arguments:</span>
+              <textarea class="code-edit" id="modify-payload-text">${escapeHtml(JSON.stringify(ev.payload?.arguments || ev.payload || {}, null, 2))}</textarea>
+            </div>
             <div class="action-row">
-              <button class="btn btn-resume" onclick="resumeAction('continue')">▶ Resume</button>
+              <button class="btn btn-resume" onclick="resumeAction('continue')">▶ Approve & Run</button>
+              <button class="btn btn-modify" onclick="resumeModifyAction()">✏️ Resume with Modified Args</button>
               <button class="btn btn-abort" onclick="resumeAction('abort')">⏹ Abort Action</button>
             </div>
           </div>
         `;
       }
 
+      if (ev.securityFindings && ev.securityFindings.length > 0) {
+        for (const f of ev.securityFindings) {
+          html += `
+            <div class="alert-card">
+              <b>🛡️ Security Warning [${f.severity.toUpperCase()}]:</b> ${escapeHtml(f.description)} (${escapeHtml(f.matchedPattern)})
+            </div>
+          `;
+        }
+      }
+
+      if (ev.loopAlert) {
+        html += `
+          <div class="alert-card" style="border-color: var(--accent-yellow); background: rgba(250, 204, 21, 0.1);">
+            <b>🔄 Infinite Loop / Oscillation Warning:</b> ${escapeHtml(ev.loopAlert.message)}
+          </div>
+        `;
+      }
+
       html += `
         <h3 style="font-size: 1rem; margin-bottom: 12px;">${escapeHtml(ev.summary)}</h3>
-        <div style="display: flex; gap: 10px; margin-bottom: 14px; font-size: 0.85rem;">
+        <div style="display: flex; gap: 8px; margin-bottom: 14px; font-size: 0.82rem; flex-wrap: wrap;">
           <span class="stat-pill">Tokens: <b style="color: var(--accent-cyan);">${ev.metrics?.totalEstimatedTokens || 0}</b></span>
           <span class="stat-pill">Source: <b>${ev.source}</b></span>
-          <span class="stat-pill">Timestamp: <b>${new Date(ev.timestamp).toLocaleTimeString()}</b></span>
+          <span class="stat-pill">Time: <b>${new Date(ev.timestamp).toLocaleTimeString()}</b></span>
         </div>
         <div class="section-title">Event Payload:</div>
         <pre class="json-view">${escapeHtml(JSON.stringify(ev.payload, null, 2))}</pre>
       `;
 
       contentEl.innerHTML = html;
-      renderAll();
+      renderWaterfall();
     }
 
     function resumeAction(action) {
@@ -536,6 +854,30 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action })
       });
+    }
+
+    function resumeModifyAction() {
+      const txt = document.getElementById('modify-payload-text').value;
+      try {
+        const payload = JSON.parse(txt);
+        fetch('/api/resume', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'modify', payload })
+        });
+      } catch (err) {
+        alert('Invalid JSON in modified payload: ' + err.message);
+      }
+    }
+
+    function exportData(format) {
+      if (format === 'markdown') {
+        window.open('/api/export/markdown', '_blank');
+      } else if (format === 'har') {
+        window.open('/api/export/har', '_blank');
+      } else {
+        window.open('/api/session', '_blank');
+      }
     }
 
     document.getElementById('time-scrubber').oninput = (e) => {

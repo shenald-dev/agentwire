@@ -4,6 +4,7 @@
 
 import pc from 'picocolors';
 import { WireEvent } from '../types.js';
+import { DiffResult } from '../core/diff-engine.js';
 
 export function renderTerminalEvent(event: WireEvent): void {
   const time = new Date(event.timestamp).toLocaleTimeString();
@@ -40,9 +41,49 @@ export function renderTerminalEvent(event: WireEvent): void {
       pc.yellow(`   └── ⏸ BREAKPOINT HIT: Execution held by agentwire. Open Web UI to resume or edit payload.`)
     );
   }
+
+  if (event.securityFindings && event.securityFindings.length > 0) {
+    for (const f of event.securityFindings) {
+      console.log(
+        pc.red(`   ⚠️  SECURITY ALERT [${f.severity.toUpperCase()}]: ${f.description} (${f.matchedPattern})`)
+      );
+    }
+  }
+
+  if (event.loopAlert) {
+    console.log(
+      pc.yellow(`   🔄 LOOP DETECTED: ${event.loopAlert.message}`)
+    );
+  }
 }
 
-export function renderBanner(version = '0.1.0', port?: number): void {
+export function renderDiffSummary(diff: DiffResult): void {
+  console.log(pc.bold(pc.cyan(`\n=== 🔍 agentwire Trajectory Diff Analysis ===\n`)));
+  console.log(`Session A (${diff.sessionA.id}): ${diff.sessionA.eventCount} steps | ~${diff.sessionA.totalTokens.toLocaleString()} tokens | ${diff.errorsA} errors`);
+  console.log(`Session B (${diff.sessionB.id}): ${diff.sessionB.eventCount} steps | ~${diff.sessionB.totalTokens.toLocaleString()} tokens | ${diff.errorsB} errors`);
+
+  const sign = diff.tokensDiff > 0 ? '+' : '';
+  const tokenColor = diff.tokensDiff <= 0 ? pc.green : pc.yellow;
+  console.log(`Token Delta: ${tokenColor(`${sign}${diff.tokensDiff.toLocaleString()} tokens (${sign}${diff.tokensPctChange}%)`)}`);
+
+  console.log(`Identical Prefix: ${diff.identicalPrefixSteps} steps shared before deviation.`);
+
+  if (diff.divergenceStepIndex !== null) {
+    console.log(pc.yellow(`\n⚠️ Divergence Point Identified at Step #${diff.divergenceStepIndex}:`));
+    console.log(pc.dim(`  Reason: ${diff.divergenceReason}`));
+    if (diff.divergingEventA) {
+      console.log(pc.red(`  Session A: [${diff.divergingEventA.kind}] ${diff.divergingEventA.summary}`));
+    }
+    if (diff.divergingEventB) {
+      console.log(pc.green(`  Session B: [${diff.divergingEventB.kind}] ${diff.divergingEventB.summary}`));
+    }
+  } else {
+    console.log(pc.green(`\n✔ Trajectories are structurally identical.`));
+  }
+  console.log();
+}
+
+export function renderBanner(version = '0.2.0', port?: number): void {
   console.log(`
 ${pc.cyan('  █████╗  ██████╗ ███████╗███╗   ██╗████████╗██╗    ██╗██╗██████╗ ███████╗')}
 ${pc.cyan(' ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██║    ██║██║██╔══██╗██╔════╝')}

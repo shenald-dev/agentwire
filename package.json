@@ -1,6 +1,6 @@
 {
   "name": "@shenald/agentwire",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The Wireshark & Live Time-Travel Debugger for AI Agents & MCP Workflows",
   "keywords": [
     "ai-agents",
@@ -43,7 +43,7 @@
     "build": "tsc",
     "watch": "tsc -w",
     "start": "node ./bin/agentwire.js",
-    "test": "node --test tests/tokens.test.js tests/session.test.js tests/breakpoints.test.js tests/mcp-proxy.test.js tests/web-server.test.js tests/cli.test.js",
+    "test": "node --test tests/*.test.js",
     "prepack": "npm run build"
   },
   "dependencies": {

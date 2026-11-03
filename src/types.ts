@@ -3,6 +3,11 @@
  * The Wireshark & Live Time-Travel Debugger for AI Agents & MCP Workflows
  */
 
+import { SecurityFinding } from './core/security.js';
+import { LoopAlert } from './core/loop-detector.js';
+import { MockRule } from './core/mock-engine.js';
+import { CostEvaluation } from './utils/cost.js';
+
 export type EventKind =
   | 'session_start'
   | 'session_end'
@@ -34,12 +39,24 @@ export interface WireEvent {
   paused?: boolean;
   durationMs?: number;
   metadata?: Record<string, any>;
+  securityFindings?: SecurityFinding[];
+  loopAlert?: LoopAlert;
+  isMocked?: boolean;
 }
 
 export interface BreakpointRule {
   id: string;
   enabled: boolean;
-  type: 'tool_name' | 'tool_arg_regex' | 'token_threshold' | 'custom_filter';
+  type:
+    | 'tool_name'
+    | 'tool_arg_regex'
+    | 'token_threshold'
+    | 'context_budget_pct'
+    | 'error_status'
+    | 'secret_leak'
+    | 'path_traversal'
+    | 'infinite_loop'
+    | 'custom_filter';
   pattern: string; // e.g. "bash", "execute_command", "rm -rf", or number string
   action: 'pause' | 'alert' | 'block';
   description?: string;
@@ -70,6 +87,8 @@ export interface SerializedSession {
   events: WireEvent[];
   branches: TimeTravelBranch[];
   breakpoints: BreakpointRule[];
+  mocks?: MockRule[];
+  costEvaluation?: CostEvaluation;
 }
 
 export interface AgentwireOptions {
@@ -79,4 +98,7 @@ export interface AgentwireOptions {
   exportPath?: string;
   inspectFile?: string;
   breakpoints?: BreakpointRule[];
+  mocks?: MockRule[];
+  stepMode?: boolean;
+  modelKey?: string;
 }
