@@ -1,5 +1,5 @@
 {
-  "name": "agentwire",
+  "name": "@shenald/agentwire",
   "version": "0.1.0",
   "description": "The Wireshark & Live Time-Travel Debugger for AI Agents & MCP Workflows",
   "keywords": [
