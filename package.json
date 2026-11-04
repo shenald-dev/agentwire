@@ -43,7 +43,7 @@
     "build": "tsc",
     "watch": "tsc -w",
     "start": "node ./bin/agentwire.js",
-    "test": "node --test tests/*.test.js",
+    "test": "node --test",
     "prepack": "npm run build"
   },
   "dependencies": {
