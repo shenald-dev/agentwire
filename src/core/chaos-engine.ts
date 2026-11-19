@@ -58,6 +58,8 @@ export class ChaosEngine extends EventEmitter {
    */
   public async evaluate(toolName: string, args: any): Promise<ChaosEvaluationResult> {
     const argsStr = JSON.stringify(args || {});
+    let accumulatedDelayMs = 0;
+    let lastDelayRule: ChaosRule | undefined;
 
     for (const rule of this.rules.values()) {
       if (!rule.enabled) continue;
@@ -84,7 +86,7 @@ export class ChaosEngine extends EventEmitter {
       }
 
       // 4. Fail count check (e.g. fail first N times then pass)
-      const countKey = `${rule.id}:${toolName}`;
+      const countKey = (rule.toolName && rule.toolName !== '*') ? `${rule.id}:${toolName}` : rule.id;
       const count = (this.callCounts.get(countKey) || 0) + 1;
       this.callCounts.set(countKey, count);
 
@@ -97,14 +99,12 @@ export class ChaosEngine extends EventEmitter {
       // Action: delay
       if (rule.action === 'delay') {
         const delayMs = rule.delayMs || 1000;
+        accumulatedDelayMs += delayMs;
+        lastDelayRule = rule;
         this.emit('delay_injected', { rule, toolName, delayMs });
         await new Promise((r) => setTimeout(r, delayMs));
-        return {
-          shouldIntercept: false, // After delay, let actual tool run
-          action: 'delay',
-          delayMs,
-          hitRule: rule
-        };
+        // Continue to allow potential subsequent fault rules to fire as well
+        continue;
       }
 
       // Action: rate_limit (HTTP 429 / MCP Rate limit error)
@@ -124,6 +124,7 @@ export class ChaosEngine extends EventEmitter {
         return {
           shouldIntercept: true,
           action: 'rate_limit',
+          delayMs: accumulatedDelayMs > 0 ? accumulatedDelayMs : undefined,
           errorResponse,
           hitRule: rule
         };
@@ -146,6 +147,7 @@ export class ChaosEngine extends EventEmitter {
         return {
           shouldIntercept: true,
           action: 'error',
+          delayMs: accumulatedDelayMs > 0 ? accumulatedDelayMs : undefined,
           errorResponse,
           hitRule: rule
         };
@@ -165,10 +167,20 @@ export class ChaosEngine extends EventEmitter {
         return {
           shouldIntercept: true,
           action: 'truncate',
+          delayMs: accumulatedDelayMs > 0 ? accumulatedDelayMs : undefined,
           errorResponse: truncatedResponse,
           hitRule: rule
         };
       }
+    }
+
+    if (accumulatedDelayMs > 0) {
+      return {
+        shouldIntercept: false,
+        action: 'delay',
+        delayMs: accumulatedDelayMs,
+        hitRule: lastDelayRule
+      };
     }
 
     return { shouldIntercept: false };

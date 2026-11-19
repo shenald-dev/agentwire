@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { spawn } from 'node:child_process';
+import * as fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -39,7 +40,8 @@ test('CLI: --help renders command manual and options', async () => {
 });
 
 test('CLI: --version displays current semver', async () => {
+  const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf-8'));
   const { code, stdout } = await runCliCmd(['--version']);
   assert.strictEqual(code, 0);
-  assert.ok(stdout.includes('0.2.0'));
+  assert.ok(stdout.includes(pkg.version));
 });

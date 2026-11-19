@@ -26,6 +26,16 @@ export class LoopDetector {
     this.maxHistory = maxHistory;
   }
 
+  public static canonicalize(obj: any): any {
+    if (obj === null || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(LoopDetector.canonicalize);
+    const sorted: Record<string, any> = {};
+    for (const key of Object.keys(obj).sort()) {
+      sorted[key] = LoopDetector.canonicalize(obj[key]);
+    }
+    return sorted;
+  }
+
   /**
    * Evaluates an incoming tool call event and returns an alert if an infinite loop or cycle is detected
    */
@@ -59,7 +69,7 @@ export class LoopDetector {
 
     const toolName = event.payload?.tool || event.payload?.name || 'unknown';
     const args = event.payload?.arguments || event.payload?.args || {};
-    const argsStr = JSON.stringify(args);
+    const argsStr = JSON.stringify(LoopDetector.canonicalize(args));
     const hash = createHash('sha256').update(`${toolName}:${argsStr}`).digest('hex').slice(0, 12);
 
     this.history.push({ hash, toolName, argsStr });

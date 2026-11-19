@@ -5,6 +5,7 @@
  */
 
 import * as http from 'node:http';
+import * as https from 'node:https';
 import { EventEmitter } from 'node:events';
 import { WireSession } from '../core/session.js';
 import { BreakpointEngine } from '../core/breakpoints.js';
@@ -85,7 +86,7 @@ export class HttpProxy extends EventEmitter {
       const method = clientReq.method || 'GET';
       const path = clientReq.url || '/';
       const isToolCall = parsedBody?.method === 'tools/call';
-      const toolName = parsedBody?.params?.name || 'http_request';
+      const toolName = parsedBody?.params?.name || path;
 
       // Record request event
       const reqEvent = this.session.recordEvent(
@@ -103,9 +104,19 @@ export class HttpProxy extends EventEmitter {
         });
       }
 
-      // Check Chaos Engine
-      if (isToolCall && this.chaosEngine) {
-        const chaosResult = await this.chaosEngine.evaluate(toolName, parsedBody?.params?.arguments);
+      // Check Chaos Engine (supports both tool calls and general HTTP endpoints)
+      if (this.chaosEngine) {
+        const chaosTargetArgs = isToolCall ? parsedBody?.params?.arguments : parsedBody;
+        const chaosResult = await this.chaosEngine.evaluate(toolName, chaosTargetArgs);
+        if (chaosResult.action === 'delay') {
+          reqEvent.isChaosInjected = true;
+          this.session.recordEvent(
+            'chaos_fault',
+            'proxy',
+            `Chaos Latency Injected (${chaosResult.delayMs}ms) on ${toolName}`,
+            { delayMs: chaosResult.delayMs, rule: chaosResult.hitRule }
+          );
+        }
         if (chaosResult.shouldIntercept) {
           reqEvent.isChaosInjected = true;
           this.session.recordEvent(
@@ -114,7 +125,7 @@ export class HttpProxy extends EventEmitter {
             `Chaos Injected (${chaosResult.action}) on ${toolName}`,
             chaosResult.errorResponse
           );
-          const statusCode = chaosResult.action === 'rate_limit' ? 429 : 500;
+          const statusCode = chaosResult.action === 'rate_limit' ? 429 : (chaosResult.hitRule?.errorStatusCode || 500);
           clientRes.writeHead(statusCode, { 'Content-Type': 'application/json' });
           clientRes.end(JSON.stringify(chaosResult.errorResponse));
           return;
@@ -150,12 +161,18 @@ export class HttpProxy extends EventEmitter {
         body = JSON.stringify(parsedBody);
       }
 
-      // Forward request to target
-      const targetReqUrl = new URL(path, this.targetUrl);
+      // Forward request to target preserving base path prefix and query string
+      const basePath = this.targetUrl.pathname.replace(/\/$/, '');
+      const fullPath = basePath ? `${basePath}${path.startsWith('/') ? path : '/' + path}` : path;
+      const targetReqUrl = new URL(fullPath, this.targetUrl.origin);
       const headers = { ...clientReq.headers, host: this.targetUrl.host };
       delete headers['content-length'];
+      delete headers['transfer-encoding'];
 
-      const proxyReq = http.request(
+      const isHttps = targetReqUrl.protocol === 'https:';
+      const requestFn = isHttps ? https.request : http.request;
+
+      const proxyReq = requestFn(
         targetReqUrl,
         {
           method,
@@ -169,32 +186,50 @@ export class HttpProxy extends EventEmitter {
           clientRes.writeHead(targetRes.statusCode || 200, targetRes.headers);
 
           let resBody = '';
+          let sseBuffer = '';
           targetRes.on('data', (chunk) => {
             const str = chunk.toString();
             resBody += str;
             clientRes.write(chunk);
 
-            // Live SSE chunk recording
-            if (isSse && str.includes('data:')) {
-              try {
-                const lines = str.split('\n');
-                for (const line of lines) {
-                  if (line.startsWith('data:')) {
-                    const dataContent = line.slice(5).trim();
-                    if (dataContent && dataContent !== '[DONE]') {
+            // Live SSE chunk recording with robust line buffering
+            if (isSse) {
+              sseBuffer += str;
+              let newlineIdx;
+              while ((newlineIdx = sseBuffer.indexOf('\n')) !== -1) {
+                const line = sseBuffer.slice(0, newlineIdx).trim();
+                sseBuffer = sseBuffer.slice(newlineIdx + 1);
+                if (line.startsWith('data:')) {
+                  const dataContent = line.slice(5).trim();
+                  if (dataContent && dataContent !== '[DONE]') {
+                    try {
                       const parsed = JSON.parse(dataContent);
                       this.session.recordEvent('prompt_turn', 'tool', `SSE Stream Chunk`, parsed);
+                    } catch {
+                      this.session.recordEvent('prompt_turn', 'tool', `SSE Stream Chunk`, { text: dataContent });
                     }
                   }
                 }
-              } catch {
-                // Ignore raw chunk parse
               }
             }
           });
 
           targetRes.on('end', () => {
             clientRes.end();
+            if (isSse && sseBuffer.trim()) {
+              const line = sseBuffer.trim();
+              if (line.startsWith('data:')) {
+                const dataContent = line.slice(5).trim();
+                if (dataContent && dataContent !== '[DONE]') {
+                  try {
+                    const parsed = JSON.parse(dataContent);
+                    this.session.recordEvent('prompt_turn', 'tool', `SSE Stream Chunk`, parsed);
+                  } catch {
+                    this.session.recordEvent('prompt_turn', 'tool', `SSE Stream Chunk`, { text: dataContent });
+                  }
+                }
+              }
+            }
             if (!isSse) {
               try {
                 const parsedRes = resBody ? JSON.parse(resBody) : null;

@@ -225,11 +225,33 @@ export class SecurityAuditor {
   ];
 
   /**
+   * Safely serializes data to a string with circular reference protection
+   */
+  public static safeStringify(data: any): string {
+    if (typeof data === 'string') return data;
+    if (data === null || data === undefined) return '';
+    try {
+      const seen = new WeakSet();
+      return JSON.stringify(data, (_key, value) => {
+        if (typeof value === 'object' && value !== null) {
+          if (seen.has(value)) {
+            return '[Circular]';
+          }
+          seen.add(value);
+        }
+        return value;
+      });
+    } catch {
+      return String(data);
+    }
+  }
+
+  /**
    * Audits any payload (string, object, tool arguments) and returns detected security findings
    */
   public static audit(data: any): SecurityFinding[] {
     const findings: SecurityFinding[] = [];
-    const text = typeof data === 'string' ? data : JSON.stringify(data || '');
+    const text = typeof data === 'string' ? data : this.safeStringify(data);
 
     // 1. Audit for leaked secrets
     for (const pat of this.SECRET_PATTERNS) {
@@ -390,7 +412,7 @@ export class SecretScrubber {
     return { redacted: text, count };
   }
 
-  public static redact<T = any>(data: T): { redacted: T; count: number } {
+  public static redact<T = any>(data: T, seen = new WeakSet()): { redacted: T; count: number } {
     if (data === null || data === undefined) {
       return { redacted: data, count: 0 };
     }
@@ -400,27 +422,38 @@ export class SecretScrubber {
       return { redacted: res.redacted as unknown as T, count: res.count };
     }
 
+    if (typeof data !== 'object') {
+      return { redacted: data, count: 0 };
+    }
+
+    // Preserve special non-plain object types like Date, RegExp, Buffer
+    if (data instanceof Date || data instanceof RegExp || (typeof Buffer !== 'undefined' && Buffer.isBuffer(data))) {
+      return { redacted: data, count: 0 };
+    }
+
+    // Circular reference protection
+    if (seen.has(data as object)) {
+      return { redacted: '[Circular]' as unknown as T, count: 0 };
+    }
+    seen.add(data as object);
+
     if (Array.isArray(data)) {
       let totalCount = 0;
       const arr = data.map((item) => {
-        const itemRes = this.redact(item);
+        const itemRes = this.redact(item, seen);
         totalCount += itemRes.count;
         return itemRes.redacted;
       });
       return { redacted: arr as unknown as T, count: totalCount };
     }
 
-    if (typeof data === 'object') {
-      let totalCount = 0;
-      const clone: Record<string, any> = {};
-      for (const [key, val] of Object.entries(data)) {
-        const fieldRes = this.redact(val);
-        totalCount += fieldRes.count;
-        clone[key] = fieldRes.redacted;
-      }
-      return { redacted: clone as unknown as T, count: totalCount };
+    let totalCount = 0;
+    const clone: Record<string, any> = {};
+    for (const [key, val] of Object.entries(data)) {
+      const fieldRes = this.redact(val, seen);
+      totalCount += fieldRes.count;
+      clone[key] = fieldRes.redacted;
     }
-
-    return { redacted: data, count: 0 };
+    return { redacted: clone as unknown as T, count: totalCount };
   }
 }

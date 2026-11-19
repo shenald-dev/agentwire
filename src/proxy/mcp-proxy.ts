@@ -160,6 +160,15 @@ export class McpProxy extends EventEmitter {
       // 0. Check Chaos Engine
       if (this.chaosEngine) {
         const chaosResult = await this.chaosEngine.evaluate(toolName, args);
+        if (chaosResult.action === 'delay') {
+          event.isChaosInjected = true;
+          this.session.recordEvent(
+            'chaos_fault',
+            'proxy',
+            `Chaos Latency Injected (${chaosResult.delayMs}ms) on ${toolName}`,
+            { delayMs: chaosResult.delayMs, rule: chaosResult.hitRule }
+          );
+        }
         if (chaosResult.shouldIntercept) {
           event.isChaosInjected = true;
           const chaosMsg = {

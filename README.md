@@ -254,7 +254,7 @@ npm run benchmark
 # Build TypeScript
 npm run build
 
-# Run comprehensive test suite (41 tests across 15 suites in ~600ms)
+# Run comprehensive test suite (49 tests across 16 suites in ~650ms)
 npm test
 ```
 

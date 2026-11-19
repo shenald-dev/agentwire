@@ -329,11 +329,19 @@ export class WebServer {
       return;
     }
 
-    // Static Assets
-    let filePath = path.join(this.publicDir, pathname === '/' ? 'index.html' : pathname);
+    // Static Assets with Path Traversal Protection
+    const safePathname = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
+    const resolvedPublicDir = path.resolve(this.publicDir);
+    const resolvedFilePath = path.resolve(resolvedPublicDir, safePathname);
 
-    if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-      const ext = path.extname(filePath);
+    if (!resolvedFilePath.startsWith(resolvedPublicDir)) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end('403 Forbidden');
+      return;
+    }
+
+    if (fs.existsSync(resolvedFilePath) && fs.statSync(resolvedFilePath).isFile()) {
+      const ext = path.extname(resolvedFilePath);
       const mimeTypes: Record<string, string> = {
         '.html': 'text/html',
         '.css': 'text/css',
@@ -342,7 +350,7 @@ export class WebServer {
         '.svg': 'image/svg+xml'
       };
       res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'text/plain' });
-      fs.createReadStream(filePath).pipe(res);
+      fs.createReadStream(resolvedFilePath).pipe(res);
     } else {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       res.end('404 Not Found');

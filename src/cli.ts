@@ -7,6 +7,7 @@
 import { Command } from 'commander';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import pc from 'picocolors';
 import { WireSession } from './core/session.js';
 import { BreakpointEngine } from './core/breakpoints.js';
@@ -29,12 +30,23 @@ import { exportToHar } from './exporters/har.js';
 import { SecretScrubber } from './core/security.js';
 
 export async function runCli(argv = process.argv): Promise<void> {
+  let cliVersion = '0.3.0';
+  try {
+    const pkgPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../package.json');
+    if (fs.existsSync(pkgPath)) {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+      if (pkg.version) cliVersion = pkg.version;
+    }
+  } catch {
+    // Default fallback
+  }
+
   const program = new Command();
 
   program
     .name('agentwire')
     .description('The Wireshark & Live Time-Travel Debugger for AI Agents & MCP Workflows')
-    .version('0.2.0');
+    .version(cliVersion);
 
   // Command 1: agentwire mcp <command...>
   program
@@ -130,9 +142,9 @@ export async function runCli(argv = process.argv): Promise<void> {
       if (options.ui) {
         webServer = new WebServer({ session, breakpointEngine, mockEngine, chaosEngine, port });
         const actualPort = await webServer.start();
-        renderBanner('0.3.0', actualPort);
+        renderBanner(cliVersion, actualPort);
       } else {
-        renderBanner('0.3.0');
+        renderBanner(cliVersion);
       }
 
       session.on('event', (ev) => {
@@ -202,9 +214,9 @@ export async function runCli(argv = process.argv): Promise<void> {
       if (options.ui) {
         webServer = new WebServer({ session, breakpointEngine, mockEngine, chaosEngine, port: uiPort });
         const actualUiPort = await webServer.start();
-        renderBanner('0.3.0', actualUiPort);
+        renderBanner(cliVersion, actualUiPort);
       } else {
-        renderBanner('0.3.0');
+        renderBanner(cliVersion);
       }
 
       session.on('event', (ev) => {
@@ -362,7 +374,7 @@ export async function runCli(argv = process.argv): Promise<void> {
       const chaosEngine = new ChaosEngine();
       const webServer = new WebServer({ session, breakpointEngine, chaosEngine, port });
       const actualPort = await webServer.start();
-      renderBanner('0.3.0', actualPort);
+      renderBanner(cliVersion, actualPort);
 
       console.log(pc.cyan(`\nDashboard is running at http://localhost:${actualPort}`));
       console.log(pc.dim(`Press Ctrl+C to stop.`));
@@ -396,7 +408,7 @@ export async function runCli(argv = process.argv): Promise<void> {
 
         const webServer = new WebServer({ session, breakpointEngine, chaosEngine, port });
         const actualPort = await webServer.start();
-        renderBanner('0.3.0', actualPort);
+        renderBanner(cliVersion, actualPort);
 
         console.log(pc.cyan(`\nReplaying session '${session.id}' (${session.getEvents().length} events)`));
         console.log(pc.green(`Inspect in DevTools: ${pc.bold(`http://localhost:${actualPort}`)}`));

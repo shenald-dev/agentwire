@@ -36,8 +36,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Support for prompt caching discounts (up to 90% savings) and reasoning/thinking token metrics.
 - ⚡ **High-Throughput Benchmarking Suite**:
   - New reproducible benchmark script (`npm run benchmark`) measuring over 92,000 events/sec throughput and sub-millisecond latencies.
+- 🔒 **Adversarial Resilience, Security & Proxy Hardening**:
+  - WebServer static path traversal containment protection (`403 Forbidden` on directory escapes).
+  - Native HTTPS upstream proxying support (`https://` targets with TLS handshakes).
+  - Base path prefix preservation on target URLs (`https://api.openai.com/v1` path routing).
+  - RFC 7230 request smuggling prevention (stripping conflicting `Transfer-Encoding: chunked` headers).
+  - Robust SSE line buffer reassembly across fragmented TCP packets.
+  - Circular reference protection in `SecurityAuditor` and `SecretScrubber` with `Date`, `RegExp`, and `Buffer` preservation.
+  - Multi-rule combined chaos latency + fault injection execution.
 - 🧪 **Expanded Test Suite**:
-  - 41 native tests across 15 suites executing in ~600ms with zero test failures.
+  - 49 native tests across 16 suites executing in ~650ms with zero test failures.
 
 ---
 
