@@ -1,6 +1,7 @@
 /**
  * agentwire - HTTP / SSE MCP Proxy Wiretap
- * Intercepts HTTP and Server-Sent Event MCP and LLM API streams
+ * Intercepts HTTP and Server-Sent Event (SSE) MCP and LLM API streams
+ * with live streaming pass-through, chaos injection, security audits, and breakpoints.
  */
 
 import * as http from 'node:http';
@@ -8,12 +9,14 @@ import { EventEmitter } from 'node:events';
 import { WireSession } from '../core/session.js';
 import { BreakpointEngine } from '../core/breakpoints.js';
 import { MockEngine } from '../core/mock-engine.js';
+import { ChaosEngine } from '../core/chaos-engine.js';
 import { SecurityAuditor } from '../core/security.js';
 
 export interface HttpProxyOptions {
   session: WireSession;
   breakpointEngine: BreakpointEngine;
   mockEngine?: MockEngine;
+  chaosEngine?: ChaosEngine;
   targetUrl: string;
   listenPort: number;
 }
@@ -23,6 +26,7 @@ export class HttpProxy extends EventEmitter {
   private session: WireSession;
   private breakpointEngine: BreakpointEngine;
   private mockEngine?: MockEngine;
+  private chaosEngine?: ChaosEngine;
   private targetUrl: URL;
   private listenPort: number;
 
@@ -31,6 +35,7 @@ export class HttpProxy extends EventEmitter {
     this.session = options.session;
     this.breakpointEngine = options.breakpointEngine;
     this.mockEngine = options.mockEngine;
+    this.chaosEngine = options.chaosEngine;
     this.targetUrl = new URL(options.targetUrl);
     this.listenPort = options.listenPort;
   }
@@ -79,10 +84,12 @@ export class HttpProxy extends EventEmitter {
 
       const method = clientReq.method || 'GET';
       const path = clientReq.url || '/';
+      const isToolCall = parsedBody?.method === 'tools/call';
+      const toolName = parsedBody?.params?.name || 'http_request';
 
       // Record request event
       const reqEvent = this.session.recordEvent(
-        parsedBody?.method === 'tools/call' ? 'tool_call' : 'prompt_turn',
+        isToolCall ? 'tool_call' : 'prompt_turn',
         'agent',
         `HTTP ${method} ${path}`,
         parsedBody || body
@@ -96,9 +103,26 @@ export class HttpProxy extends EventEmitter {
         });
       }
 
+      // Check Chaos Engine
+      if (isToolCall && this.chaosEngine) {
+        const chaosResult = await this.chaosEngine.evaluate(toolName, parsedBody?.params?.arguments);
+        if (chaosResult.shouldIntercept) {
+          reqEvent.isChaosInjected = true;
+          this.session.recordEvent(
+            'chaos_fault',
+            'proxy',
+            `Chaos Injected (${chaosResult.action}) on ${toolName}`,
+            chaosResult.errorResponse
+          );
+          const statusCode = chaosResult.action === 'rate_limit' ? 429 : 500;
+          clientRes.writeHead(statusCode, { 'Content-Type': 'application/json' });
+          clientRes.end(JSON.stringify(chaosResult.errorResponse));
+          return;
+        }
+      }
+
       // Check Mocks
-      if (parsedBody?.method === 'tools/call' && this.mockEngine) {
-        const toolName = parsedBody.params?.name;
+      if (isToolCall && this.mockEngine) {
         const mock = this.mockEngine.match(toolName, parsedBody.params?.arguments);
         if (mock) {
           const mockResponse = {
@@ -141,26 +165,48 @@ export class HttpProxy extends EventEmitter {
           }
         },
         (targetRes) => {
+          const isSse = (targetRes.headers['content-type'] || '').includes('text/event-stream');
           clientRes.writeHead(targetRes.statusCode || 200, targetRes.headers);
 
           let resBody = '';
           targetRes.on('data', (chunk) => {
-            resBody += chunk;
+            const str = chunk.toString();
+            resBody += str;
             clientRes.write(chunk);
+
+            // Live SSE chunk recording
+            if (isSse && str.includes('data:')) {
+              try {
+                const lines = str.split('\n');
+                for (const line of lines) {
+                  if (line.startsWith('data:')) {
+                    const dataContent = line.slice(5).trim();
+                    if (dataContent && dataContent !== '[DONE]') {
+                      const parsed = JSON.parse(dataContent);
+                      this.session.recordEvent('prompt_turn', 'tool', `SSE Stream Chunk`, parsed);
+                    }
+                  }
+                }
+              } catch {
+                // Ignore raw chunk parse
+              }
+            }
           });
 
           targetRes.on('end', () => {
             clientRes.end();
-            try {
-              const parsedRes = resBody ? JSON.parse(resBody) : null;
-              this.session.recordEvent(
-                parsedRes?.result ? 'tool_result' : 'prompt_turn',
-                'tool',
-                `HTTP Response ${targetRes.statusCode} (${path})`,
-                parsedRes || resBody
-              );
-            } catch {
-              // Non-JSON response
+            if (!isSse) {
+              try {
+                const parsedRes = resBody ? JSON.parse(resBody) : null;
+                this.session.recordEvent(
+                  parsedRes?.result ? 'tool_result' : 'prompt_turn',
+                  'tool',
+                  `HTTP Response ${targetRes.statusCode} (${path})`,
+                  parsedRes || resBody
+                );
+              } catch {
+                // Non-JSON response
+              }
             }
           });
         }

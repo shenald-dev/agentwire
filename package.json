@@ -44,6 +44,7 @@
     "watch": "tsc -w",
     "start": "node ./bin/agentwire.js",
     "test": "node --test",
+    "benchmark": "node benchmarks/performance.bench.js",
     "prepack": "npm run build"
   },
   "dependencies": {

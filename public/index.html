@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>agentwire — DevTools for AI Agents</title>
+  <title>agentwire — DevTools for AI Agents & MCP</title>
   <style>
     :root {
       --bg-dark: #0a0d14;
@@ -19,6 +19,7 @@
       --accent-green: #00ff88;
       --accent-yellow: #facc15;
       --accent-red: #ef4444;
+      --accent-orange: #f97316;
       --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
@@ -101,7 +102,7 @@
     main {
       flex: 1;
       display: grid;
-      grid-template-columns: 400px 1fr 340px;
+      grid-template-columns: 420px 1fr 340px;
       overflow: hidden;
     }
 
@@ -236,10 +237,21 @@
     .kind-prompt_turn { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); }
     .kind-error { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
     .kind-breakpoint_hit { background: rgba(250, 204, 21, 0.15); color: var(--accent-yellow); }
+    .kind-chaos_fault { background: rgba(249, 115, 22, 0.15); color: var(--accent-orange); }
 
     .tag-security {
       background: rgba(239, 68, 68, 0.2);
       color: var(--accent-red);
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+      margin-left: 4px;
+    }
+
+    .tag-injection {
+      background: rgba(255, 0, 127, 0.2);
+      color: var(--accent-pink);
       font-size: 0.68rem;
       font-weight: 700;
       padding: 1px 4px;
@@ -257,33 +269,42 @@
       margin-left: 4px;
     }
 
+    .tag-chaos {
+      background: rgba(249, 115, 22, 0.2);
+      color: var(--accent-orange);
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+      margin-left: 4px;
+    }
+
     .event-title {
-      font-size: 0.82rem;
+      font-size: 0.85rem;
       font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      margin-bottom: 6px;
     }
 
     .waterfall-bar {
-      height: 4px;
-      background: #1e2638;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.05);
       border-radius: 2px;
-      margin-top: 6px;
       overflow: hidden;
     }
 
     .waterfall-fill {
       height: 100%;
       background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
-      border-radius: 2px;
     }
 
     /* Column 2: Inspector */
     .inspector-col {
+      background: var(--bg-dark);
       display: flex;
       flex-direction: column;
-      background: var(--bg-dark);
       overflow: hidden;
     }
 
@@ -293,9 +314,8 @@
       padding: 16px;
     }
 
-    /* Alerts and Pause Banner */
     .pause-banner {
-      background: rgba(250, 204, 21, 0.08);
+      background: rgba(250, 204, 21, 0.1);
       border: 1px solid var(--accent-yellow);
       border-radius: 8px;
       padding: 14px;
@@ -347,6 +367,7 @@
     .btn-modify { background: var(--accent-cyan); color: #000; }
     .btn-abort { background: var(--accent-red); color: #fff; }
     .btn-branch { background: var(--accent-purple); color: #fff; }
+    .btn-chaos { background: var(--accent-orange); color: #000; }
     .btn-ghost { background: var(--bg-card); color: var(--text); border: 1px solid var(--border); }
 
     pre.json-view {
@@ -448,56 +469,79 @@
     }
 
     .time-travel-label {
-      font-size: 0.78rem;
-      font-weight: 700;
-      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-weight: 600;
       white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     .scrubber {
       flex: 1;
-      accent-color: var(--accent-cyan);
+      accent-color: var(--accent-purple);
+      cursor: pointer;
     }
+
+    /* Score Card Modal */
+    .score-badge {
+      padding: 2px 7px;
+      border-radius: 12px;
+      font-weight: 800;
+      font-size: 0.75rem;
+    }
+    .score-a { background: rgba(0, 255, 136, 0.2); color: var(--accent-green); border: 1px solid var(--accent-green); }
+    .score-b { background: rgba(0, 240, 255, 0.2); color: var(--accent-cyan); border: 1px solid var(--accent-cyan); }
+    .score-c { background: rgba(250, 204, 21, 0.2); color: var(--accent-yellow); border: 1px solid var(--accent-yellow); }
+    .score-f { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); }
   </style>
 </head>
 <body>
 
+  <!-- Top Header Navigation -->
   <header>
     <div class="brand">
       <span>⚡ agentwire</span>
-      <span class="brand-badge">v0.2.0</span>
+      <span class="brand-badge">DevTools</span>
     </div>
 
     <div class="stats">
       <div class="stat-pill">
         <span>Session:</span>
-        <span class="stat-value" id="session-id">loading...</span>
+        <span class="stat-value" id="session-id">Loading...</span>
+      </div>
+      <div class="stat-pill">
+        <span>Events:</span>
+        <span class="stat-value" id="event-count">0</span>
       </div>
       <div class="stat-pill">
         <span>Tokens:</span>
         <span class="stat-value" id="total-tokens">0 tk</span>
       </div>
       <div class="stat-pill">
-        <span>Est. Cost:</span>
-        <span class="stat-value" id="est-cost" style="color: var(--accent-green);">$0.000</span>
+        <span>Cost Est:</span>
+        <span class="stat-value" id="est-cost">$0.00</span>
       </div>
       <div class="stat-pill">
-        <span>Context:</span>
-        <span class="stat-value" id="context-gauge">0.0%</span>
+        <span>Context Exhaustion:</span>
+        <span class="stat-value" id="context-gauge">0%</span>
       </div>
-      <div class="stat-pill">
-        <span>Events:</span>
-        <span class="stat-value" id="event-count">0</span>
+      <div class="stat-pill" id="score-pill" style="cursor: pointer;" onclick="showEvaluationModal()">
+        <span>SLA Quality:</span>
+        <span id="score-badge" class="score-badge score-a">95 A+</span>
       </div>
     </div>
 
     <div class="header-actions">
-      <button class="btn btn-ghost" onclick="exportData('markdown')" title="Download Markdown Diagnostic Report">📄 Report</button>
-      <button class="btn btn-ghost" onclick="exportData('har')" title="Export HTTP Archive (HAR 1.2)">🌐 HAR</button>
-      <button class="btn btn-ghost" onclick="exportData('json')" title="Download .agentwire.json Session">💾 JSON</button>
+      <button class="btn btn-ghost" onclick="toggleRedaction()" id="btn-redact" title="Mask API keys and credentials">🛡️ Redact: OFF</button>
+      <button class="btn btn-ghost" onclick="exportData('test')" title="Download standalone reproduction test script">🧪 Export Test</button>
+      <button class="btn btn-ghost" onclick="exportData('markdown')" title="Export diagnostic report">📄 Markdown</button>
+      <button class="btn btn-ghost" onclick="exportData('har')" title="Export HAR 1.2 archive">📦 HAR</button>
+      <button class="btn btn-ghost" onclick="exportData('json')" title="Export session JSON">💾 JSON</button>
     </div>
   </header>
 
+  <!-- 3-Column Studio Workspace -->
   <main>
     <!-- Column 1: Event Waterfall & Search -->
     <div class="timeline-col">
@@ -514,6 +558,7 @@
           <span class="chip" data-filter="tool_result" onclick="setKindFilter('tool_result')">Results</span>
           <span class="chip" data-filter="error" onclick="setKindFilter('error')">Errors</span>
           <span class="chip" data-filter="breakpoint_hit" onclick="setKindFilter('breakpoint_hit')">Pauses</span>
+          <span class="chip" data-filter="chaos_fault" onclick="setKindFilter('chaos_fault')">Chaos</span>
         </div>
       </div>
 
@@ -534,8 +579,45 @@
       </div>
     </div>
 
-    <!-- Column 3: Breakpoints & Mocks -->
+    <!-- Column 3: Breakpoints, Chaos & Mocks -->
     <div class="sidebar-col">
+      <!-- Chaos Studio -->
+      <div>
+        <div class="section-title">
+          <span>🔥 Chaos & Fault Studio</span>
+          <button class="btn btn-ghost" style="padding: 2px 6px; font-size: 0.7rem;" onclick="toggleChaosForm()">+ Rule</button>
+        </div>
+
+        <div id="add-chaos-form" style="display: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-bottom: 10px;">
+          <div class="form-group">
+            <span class="form-label">Chaos Action:</span>
+            <select class="form-select" id="new-chaos-action">
+              <option value="delay">Inject Latency (Jitter)</option>
+              <option value="rate_limit">HTTP 429 Rate Limit</option>
+              <option value="error">Server Fault 500</option>
+              <option value="truncate">Context Truncation</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <span class="form-label">Tool Target (* for all):</span>
+            <input type="text" class="form-input" id="new-chaos-tool" placeholder="e.g. bash or *" value="*">
+          </div>
+          <div class="form-group">
+            <span class="form-label">Latency Delay (ms):</span>
+            <input type="number" class="form-input" id="new-chaos-delay" placeholder="e.g. 1500" value="1000">
+          </div>
+          <div style="display: flex; gap: 6px; margin-top: 8px;">
+            <button class="btn btn-chaos" style="flex: 1;" onclick="submitNewChaos()">Add Fault Rule</button>
+            <button class="btn btn-ghost" onclick="toggleChaosForm()">Cancel</button>
+          </div>
+        </div>
+
+        <div id="chaos-list" style="margin-bottom: 10px;">
+          <small style="color: var(--text-muted);">No active chaos rules.</small>
+        </div>
+      </div>
+
+      <!-- Breakpoints -->
       <div>
         <div class="section-title">
           <span>Active Breakpoints</span>
@@ -550,6 +632,8 @@
               <option value="tool_name">Tool Name</option>
               <option value="tool_arg_regex">Argument Regex</option>
               <option value="secret_leak">Secret Leak Guard</option>
+              <option value="prompt_injection">Prompt Injection Guard</option>
+              <option value="ssrf_attempt">SSRF / Private IP Guard</option>
               <option value="path_traversal">Path Traversal Guard</option>
               <option value="infinite_loop">Loop Guard</option>
               <option value="token_threshold">Token Threshold</option>
@@ -579,6 +663,7 @@
         </div>
       </div>
 
+      <!-- Time Travel Branches -->
       <div>
         <div class="section-title">Time-Travel Branches</div>
         <div id="branches-list">
@@ -588,6 +673,7 @@
     </div>
   </main>
 
+  <!-- Bottom Scrubber Controls -->
   <footer>
     <span class="time-travel-label">⏪ Time-Travel Scrubber:</span>
     <input type="range" class="scrubber" id="time-scrubber" min="0" max="0" value="0">
@@ -597,10 +683,12 @@
   <script>
     let events = [];
     let breakpoints = [];
+    let chaosRules = [];
     let selectedIndex = -1;
     let currentSession = null;
     let activeFilterKind = 'all';
     let searchQuery = '';
+    let isRedactionActive = false;
 
     // Connect to Server-Sent Events (SSE)
     const eventSource = new EventSource('/api/events');
@@ -612,11 +700,15 @@
           currentSession = msg.session;
           events = msg.session.events || [];
           breakpoints = msg.session.breakpoints || [];
+          chaosRules = msg.session.chaosRules || [];
           renderAll();
           loadBreakpoints();
+          loadChaosRules();
+          updateEvaluationScore();
         } else if (msg.type === 'event') {
           events.push(msg.data);
           renderAll();
+          updateEvaluationScore();
           if (selectedIndex === -1 || selectedIndex === events.length - 2) {
             selectEvent(events.length - 1);
           }
@@ -629,11 +721,43 @@
           const ev = events.find(x => x.paused);
           if (ev) ev.paused = false;
           renderAll();
+        } else if (msg.type === 'chaos_fault' || msg.type === 'chaos_delay') {
+          loadChaosRules();
         }
       } catch (err) {
         console.error('SSE Error:', err);
       }
     };
+
+    function updateEvaluationScore() {
+      fetch('/api/eval')
+        .then(res => res.json())
+        .then(evalResult => {
+          const badge = document.getElementById('score-badge');
+          if (badge && evalResult) {
+            badge.textContent = `${evalResult.overallScore} ${evalResult.grade}`;
+            badge.className = `score-badge ${evalResult.overallScore >= 80 ? 'score-a' : evalResult.overallScore >= 60 ? 'score-c' : 'score-f'}`;
+          }
+        })
+        .catch(() => {});
+    }
+
+    function showEvaluationModal() {
+      fetch('/api/eval')
+        .then(res => res.json())
+        .then(e => {
+          alert(`📊 Trajectory Evaluation Scorecard:\nOverall: ${e.overallScore}/100 (Grade: ${e.grade})\n- Safety: ${e.dimensions.safety}/100\n- Efficiency: ${e.dimensions.efficiency}/100\n- Reliability: ${e.dimensions.reliability}/100\n- Speed: ${e.dimensions.speed}/100\n\nTop Recommendation: ${e.recommendations[0] || 'Clean trajectory'}`);
+        });
+    }
+
+    function toggleRedaction() {
+      isRedactionActive = !isRedactionActive;
+      const btn = document.getElementById('btn-redact');
+      btn.textContent = isRedactionActive ? '🛡️ Redact: ON' : '🛡️ Redact: OFF';
+      btn.style.borderColor = isRedactionActive ? 'var(--accent-green)' : 'var(--border)';
+      renderWaterfall();
+      if (selectedIndex >= 0) selectEvent(selectedIndex);
+    }
 
     function loadBreakpoints() {
       fetch('/api/breakpoints')
@@ -704,6 +828,76 @@
       }).then(() => loadBreakpoints());
     }
 
+    // Chaos Studio
+    function loadChaosRules() {
+      fetch('/api/chaos')
+        .then(res => res.json())
+        .then(rules => {
+          chaosRules = rules || [];
+          renderChaosRules();
+        })
+        .catch(() => {});
+    }
+
+    function renderChaosRules() {
+      const el = document.getElementById('chaos-list');
+      if (chaosRules.length === 0) {
+        el.innerHTML = '<small style="color: var(--text-muted);">No active chaos rules.</small>';
+        return;
+      }
+      el.innerHTML = '';
+      chaosRules.forEach(cr => {
+        const row = document.createElement('div');
+        row.className = 'bp-item';
+        row.innerHTML = `
+          <div>
+            <div class="bp-pattern" style="color: var(--accent-orange);">${escapeHtml(cr.toolName || '*')} (${cr.action})</div>
+            <small style="color: var(--text-muted);">${cr.delayMs ? `${cr.delayMs}ms delay` : cr.action}</small>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button class="btn btn-ghost" style="padding: 2px 5px; font-size: 0.68rem; color: ${cr.enabled ? 'var(--accent-orange)' : 'var(--text-muted)'};" onclick="toggleChaos('${cr.id}', ${!cr.enabled})">${cr.enabled ? 'ON' : 'OFF'}</button>
+            <button class="btn btn-ghost" style="padding: 2px 5px; font-size: 0.68rem; color: var(--accent-red);" onclick="deleteChaos('${cr.id}')">✕</button>
+          </div>
+        `;
+        el.appendChild(row);
+      });
+    }
+
+    function toggleChaosForm() {
+      const f = document.getElementById('add-chaos-form');
+      f.style.display = f.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function submitNewChaos() {
+      const action = document.getElementById('new-chaos-action').value;
+      const toolName = document.getElementById('new-chaos-tool').value.trim() || '*';
+      const delayMs = parseInt(document.getElementById('new-chaos-delay').value, 10) || 1000;
+      fetch('/api/chaos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, toolName, delayMs, enabled: true })
+      }).then(() => {
+        toggleChaosForm();
+        loadChaosRules();
+      });
+    }
+
+    function toggleChaos(id, enabled) {
+      fetch('/api/chaos/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, enabled })
+      }).then(() => loadChaosRules());
+    }
+
+    function deleteChaos(id) {
+      fetch('/api/chaos', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      }).then(() => loadChaosRules());
+    }
+
     function setKindFilter(kind) {
       activeFilterKind = kind;
       document.querySelectorAll('.filter-chips .chip').forEach(c => {
@@ -722,7 +916,6 @@
       const totalTokens = events.reduce((sum, ev) => sum + (ev.metrics?.totalEstimatedTokens || 0), 0);
       document.getElementById('total-tokens').textContent = totalTokens > 1000 ? `${(totalTokens/1000).toFixed(1)}k tk` : `${totalTokens} tk`;
       
-      // Cost & Context estimate (Standard $3/1M prompt, $15/1M completion, 128k context)
       const cost = (totalTokens / 1_000_000) * 5.0;
       document.getElementById('est-cost').textContent = cost < 0.01 ? `$${cost.toFixed(4)}` : `$${cost.toFixed(2)}`;
       const ctxPct = Math.min(100, (totalTokens / 128_000) * 100).toFixed(1);
@@ -738,6 +931,14 @@
       scrubber.value = selectedIndex >= 0 ? selectedIndex : events.length - 1;
 
       renderWaterfall();
+    }
+
+    function maskText(str) {
+      if (!isRedactionActive) return str;
+      return str
+        .replace(/\b(sk-[a-zA-Z0-9]{8})[a-zA-Z0-9_-]+\b/g, '$1****[REDACTED]')
+        .replace(/\b(ghp_[a-zA-Z0-9]{4})[a-zA-Z0-9]+\b/g, '$1****[REDACTED]')
+        .replace(/\b(AKIA[0-9A-Z]{4})[0-9A-Z]+\b/g, '$1****[REDACTED]');
     }
 
     function renderWaterfall() {
@@ -762,10 +963,18 @@
 
         let alertTags = '';
         if (ev.securityFindings && ev.securityFindings.length > 0) {
-          alertTags += `<span class="tag-security">SEC ALERT</span>`;
+          const hasInjection = ev.securityFindings.some(f => f.category === 'prompt_injection');
+          if (hasInjection) {
+            alertTags += `<span class="tag-injection">INJECTION</span>`;
+          } else {
+            alertTags += `<span class="tag-security">SEC ALERT</span>`;
+          }
         }
         if (ev.loopAlert) {
           alertTags += `<span class="tag-loop">LOOP</span>`;
+        }
+        if (ev.isChaosInjected) {
+          alertTags += `<span class="tag-chaos">CHAOS</span>`;
         }
 
         card.innerHTML = `
@@ -776,7 +985,7 @@
             </div>
             <span>${ev.metrics?.totalEstimatedTokens || 0} tk</span>
           </div>
-          <div class="event-title">${escapeHtml(ev.summary || 'Event')}</div>
+          <div class="event-title">${escapeHtml(maskText(ev.summary || 'Event'))}</div>
           <div class="waterfall-bar">
             <div class="waterfall-fill" style="width: ${fillWidth}%;"></div>
           </div>
@@ -820,6 +1029,7 @@
           html += `
             <div class="alert-card">
               <b>🛡️ Security Warning [${f.severity.toUpperCase()}]:</b> ${escapeHtml(f.description)} (${escapeHtml(f.matchedPattern)})
+              ${f.remediation ? `<div style="margin-top: 4px; color: #cbd5e1;">💡 ${escapeHtml(f.remediation)}</div>` : ''}
             </div>
           `;
         }
@@ -833,15 +1043,17 @@
         `;
       }
 
+      const payloadStr = maskText(JSON.stringify(ev.payload, null, 2));
+
       html += `
-        <h3 style="font-size: 1rem; margin-bottom: 12px;">${escapeHtml(ev.summary)}</h3>
+        <h3 style="font-size: 1rem; margin-bottom: 12px;">${escapeHtml(maskText(ev.summary))}</h3>
         <div style="display: flex; gap: 8px; margin-bottom: 14px; font-size: 0.82rem; flex-wrap: wrap;">
           <span class="stat-pill">Tokens: <b style="color: var(--accent-cyan);">${ev.metrics?.totalEstimatedTokens || 0}</b></span>
           <span class="stat-pill">Source: <b>${ev.source}</b></span>
           <span class="stat-pill">Time: <b>${new Date(ev.timestamp).toLocaleTimeString()}</b></span>
         </div>
         <div class="section-title">Event Payload:</div>
-        <pre class="json-view">${escapeHtml(JSON.stringify(ev.payload, null, 2))}</pre>
+        <pre class="json-view">${escapeHtml(payloadStr)}</pre>
       `;
 
       contentEl.innerHTML = html;
@@ -875,6 +1087,21 @@
         window.open('/api/export/markdown', '_blank');
       } else if (format === 'har') {
         window.open('/api/export/har', '_blank');
+      } else if (format === 'test') {
+        fetch('/api/export/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ runner: 'node-test' })
+        })
+        .then(r => r.text())
+        .then(script => {
+          const blob = new Blob([script], { type: 'text/javascript' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `reproduced-agent.test.js`;
+          a.click();
+        });
       } else {
         window.open('/api/session', '_blank');
       }

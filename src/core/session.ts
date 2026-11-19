@@ -1,6 +1,7 @@
 /**
  * agentwire - WireSession Engine
- * Manages event trajectories, token waterfalls, and time-travel state branching
+ * Manages event trajectories, token waterfalls, time-travel state branching,
+ * chaos rules, and evaluation scorecards.
  */
 
 import { EventEmitter } from 'node:events';
@@ -10,19 +11,23 @@ import {
   EventKind,
   SerializedSession,
   TimeTravelBranch,
-  BreakpointRule
+  BreakpointRule,
+  ChaosRule,
+  TrajectoryEvaluation
 } from '../types.js';
 import { computeEventMetrics } from '../utils/tokens.js';
 import { calculateSessionCost, CostEvaluation } from '../utils/cost.js';
-import { SecurityAuditor } from './security.js';
+import { SecurityAuditor, SecretScrubber } from './security.js';
 import { LoopDetector } from './loop-detector.js';
 import { MockRule } from './mock-engine.js';
+import { TrajectoryEvaluator } from './eval-engine.js';
 
 export interface SessionEvents {
   event: (event: WireEvent) => void;
   paused: (event: WireEvent) => void;
   resumed: (event: WireEvent) => void;
   branch: (branch: TimeTravelBranch) => void;
+  security: (event: WireEvent) => void;
 }
 
 export class WireSession extends EventEmitter {
@@ -35,6 +40,7 @@ export class WireSession extends EventEmitter {
   private totalTokens = 0;
   private breakpoints: BreakpointRule[] = [];
   private mocks: MockRule[] = [];
+  private chaosRules: ChaosRule[] = [];
   private loopDetector: LoopDetector = new LoopDetector();
   public modelKey = 'default';
 
@@ -61,7 +67,7 @@ export class WireSession extends EventEmitter {
     this.totalTokens += metrics.totalEstimatedTokens;
     this.updatedAt = Date.now();
 
-    // Security Audit
+    // Security Audit (Secret leak, path traversal, prompt injection, SSRF, destructive command)
     const securityFindings = SecurityAuditor.audit(payload);
 
     const event: WireEvent = {
@@ -77,8 +83,8 @@ export class WireSession extends EventEmitter {
       securityFindings: securityFindings.length > 0 ? securityFindings : undefined
     };
 
-    // Loop Detection for tool calls
-    if (kind === 'tool_call') {
+    // Loop Detection for tool calls and errors
+    if (kind === 'tool_call' || kind === 'error' || kind === 'tool_result') {
       const loopAlert = this.loopDetector.evaluate(event);
       if (loopAlert) {
         event.loopAlert = loopAlert;
@@ -87,6 +93,11 @@ export class WireSession extends EventEmitter {
 
     this.events.push(event);
     this.emit('event', event);
+
+    if (securityFindings.length > 0) {
+      this.emit('security', event);
+    }
+
     return event;
   }
 
@@ -116,6 +127,13 @@ export class WireSession extends EventEmitter {
    */
   public getCostEvaluation(): CostEvaluation {
     return calculateSessionCost({ totalEstimatedTokens: this.totalTokens }, this.modelKey);
+  }
+
+  /**
+   * Computes trajectory evaluation & scoring
+   */
+  public evaluateTrajectory(): TrajectoryEvaluation {
+    return TrajectoryEvaluator.evaluate(this.exportJson());
   }
 
   /**
@@ -179,10 +197,22 @@ export class WireSession extends EventEmitter {
   }
 
   /**
-   * Serializes the complete session into a portable JSON structure
+   * Set active chaos rules
    */
-  public exportJson(): SerializedSession {
-    return {
+  public setChaosRules(rules: ChaosRule[]): void {
+    this.chaosRules = [...rules];
+  }
+
+  public getChaosRules(): ChaosRule[] {
+    return [...this.chaosRules];
+  }
+
+  /**
+   * Serializes the complete session into a portable JSON structure.
+   * If redact is true, sanitizes API keys and tokens before serialization.
+   */
+  public exportJson(options?: { redact?: boolean }): SerializedSession {
+    const rawData: SerializedSession = {
       version: '1.0.0',
       sessionId: this.id,
       createdAt: this.createdAt,
@@ -193,8 +223,16 @@ export class WireSession extends EventEmitter {
       branches: this.branches,
       breakpoints: this.breakpoints,
       mocks: this.mocks,
+      chaosRules: this.chaosRules,
       costEvaluation: this.getCostEvaluation()
     };
+
+    if (options?.redact) {
+      const { redacted } = SecretScrubber.redact(rawData);
+      return redacted;
+    }
+
+    return rawData;
   }
 
   /**
@@ -209,6 +247,7 @@ export class WireSession extends EventEmitter {
     session.branches = [...(data.branches || [])];
     session.breakpoints = [...(data.breakpoints || [])];
     session.mocks = [...(data.mocks || [])];
+    session.chaosRules = [...(data.chaosRules || [])];
     return session;
   }
 }

@@ -140,6 +140,20 @@ export class BreakpointEngine extends EventEmitter {
           break;
         }
 
+        case 'prompt_injection': {
+          if (event.securityFindings?.some((f) => f.category === 'prompt_injection')) {
+            matched = true;
+          }
+          break;
+        }
+
+        case 'ssrf_attempt': {
+          if (event.securityFindings?.some((f) => f.category === 'ssrf_attempt')) {
+            matched = true;
+          }
+          break;
+        }
+
         case 'infinite_loop': {
           if (event.loopAlert !== undefined && event.loopAlert !== null) {
             matched = true;

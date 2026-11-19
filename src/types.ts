@@ -16,6 +16,10 @@ export type EventKind =
   | 'tool_result'
   | 'breakpoint_hit'
   | 'breakpoint_resume'
+  | 'prompt_injection'
+  | 'ssrf_alert'
+  | 'chaos_fault'
+  | 'eval_score'
   | 'error';
 
 export interface WireTokenMetrics {
@@ -25,6 +29,45 @@ export interface WireTokenMetrics {
   toolCallTokens: number;
   toolResultTokens: number;
   turnPercentage?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  reasoningTokens?: number;
+}
+
+export interface ChaosRule {
+  id: string;
+  enabled: boolean;
+  toolName?: string;
+  pattern?: string;
+  action: 'delay' | 'error' | 'rate_limit' | 'truncate';
+  delayMs?: number;
+  errorStatusCode?: number;
+  errorMessage?: string;
+  probability?: number;
+  failCount?: number;
+  description?: string;
+}
+
+export interface TrajectoryEvaluation {
+  overallScore: number; // 0 - 100
+  grade: 'A+' | 'A' | 'B' | 'C' | 'D' | 'F';
+  dimensions: {
+    efficiency: number;
+    safety: number;
+    reliability: number;
+    speed: number;
+  };
+  metrics: {
+    totalSteps: number;
+    toolCalls: number;
+    errorRatePct: number;
+    redundantCalls: number;
+    securityFindingsCount: number;
+    loopCount: number;
+    totalCostUsd: number;
+    durationMs: number;
+  };
+  recommendations: string[];
 }
 
 export interface WireEvent {
@@ -42,6 +85,7 @@ export interface WireEvent {
   securityFindings?: SecurityFinding[];
   loopAlert?: LoopAlert;
   isMocked?: boolean;
+  isChaosInjected?: boolean;
 }
 
 export interface BreakpointRule {
@@ -55,6 +99,8 @@ export interface BreakpointRule {
     | 'error_status'
     | 'secret_leak'
     | 'path_traversal'
+    | 'prompt_injection'
+    | 'ssrf_attempt'
     | 'infinite_loop'
     | 'custom_filter';
   pattern: string; // e.g. "bash", "execute_command", "rm -rf", or number string
@@ -88,7 +134,9 @@ export interface SerializedSession {
   branches: TimeTravelBranch[];
   breakpoints: BreakpointRule[];
   mocks?: MockRule[];
+  chaosRules?: ChaosRule[];
   costEvaluation?: CostEvaluation;
+  evaluation?: TrajectoryEvaluation;
 }
 
 export interface AgentwireOptions {
@@ -99,6 +147,7 @@ export interface AgentwireOptions {
   inspectFile?: string;
   breakpoints?: BreakpointRule[];
   mocks?: MockRule[];
+  chaosRules?: ChaosRule[];
   stepMode?: boolean;
   modelKey?: string;
 }

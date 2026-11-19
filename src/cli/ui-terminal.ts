@@ -3,7 +3,7 @@
  */
 
 import pc from 'picocolors';
-import { WireEvent } from '../types.js';
+import { WireEvent, TrajectoryEvaluation } from '../types.js';
 import { DiffResult } from '../core/diff-engine.js';
 
 export function renderTerminalEvent(event: WireEvent): void {
@@ -24,6 +24,9 @@ export function renderTerminalEvent(event: WireEvent): void {
       break;
     case 'breakpoint_hit':
       kindBadge = pc.bold(pc.yellow('⏸ PAUSE    '));
+      break;
+    case 'chaos_fault':
+      kindBadge = pc.bold(pc.red('🔥 CHAOS    '));
       break;
     case 'error':
       kindBadge = pc.bold(pc.red('✖ ERROR    '));
@@ -83,7 +86,30 @@ export function renderDiffSummary(diff: DiffResult): void {
   console.log();
 }
 
-export function renderBanner(version = '0.2.0', port?: number): void {
+export function renderEvaluationSummary(evaluation: TrajectoryEvaluation): void {
+  const gradeColor = evaluation.overallScore >= 80 ? pc.green : evaluation.overallScore >= 60 ? pc.yellow : pc.red;
+
+  console.log(pc.bold(pc.cyan(`\n=== 📊 agentwire Trajectory Evaluation & SLA Scorecard ===\n`)));
+  console.log(`Overall Quality Score: ${gradeColor(pc.bold(`${evaluation.overallScore}/100`))} (Grade: ${gradeColor(evaluation.grade)})`);
+  console.log();
+  console.log(`  🛡️  Safety & Integrity : ${evaluation.dimensions.safety}/100`);
+  console.log(`  ⚡  Efficiency & Tokens : ${evaluation.dimensions.efficiency}/100`);
+  console.log(`  🔄  Reliability & Recovery : ${evaluation.dimensions.reliability}/100`);
+  console.log(`  ⏱️  Speed & Latency     : ${evaluation.dimensions.speed}/100`);
+  console.log();
+  console.log(pc.dim(`Metrics: ${evaluation.metrics.totalSteps} steps | ${evaluation.metrics.toolCalls} tool calls | ${evaluation.metrics.securityFindingsCount} security alerts | ${evaluation.metrics.loopCount} loops | ${evaluation.metrics.errorRatePct}% error rate`));
+  console.log();
+
+  if (evaluation.recommendations.length > 0) {
+    console.log(pc.bold('Recommendations:'));
+    for (const rec of evaluation.recommendations) {
+      console.log(`  ${pc.cyan('•')} ${rec}`);
+    }
+    console.log();
+  }
+}
+
+export function renderBanner(version = '0.3.0', port?: number): void {
   console.log(`
 ${pc.cyan('  █████╗  ██████╗ ███████╗███╗   ██╗████████╗██╗    ██╗██╗██████╗ ███████╗')}
 ${pc.cyan(' ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██║    ██║██║██╔══██╗██╔════╝')}

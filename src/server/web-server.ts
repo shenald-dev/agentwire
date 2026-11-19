@@ -1,6 +1,7 @@
 /**
  * agentwire - DevTools Web Server
- * Real-time SSE streaming, session introspection, breakpoint & mock controls, and export formats
+ * Real-time SSE streaming, session introspection, breakpoint & mock controls,
+ * chaos injection studio, trajectory evaluation, and export formats.
  */
 
 import * as http from 'node:http';
@@ -10,9 +11,12 @@ import { fileURLToPath } from 'node:url';
 import { WireSession } from '../core/session.js';
 import { BreakpointEngine } from '../core/breakpoints.js';
 import { MockEngine } from '../core/mock-engine.js';
+import { ChaosEngine } from '../core/chaos-engine.js';
 import { exportToMarkdown } from '../exporters/markdown.js';
 import { exportToHar } from '../exporters/har.js';
 import { TrajectoryDiff } from '../core/diff-engine.js';
+import { TrajectoryEvaluator } from '../core/eval-engine.js';
+import { TestGenerator } from '../generators/reproduction-generator.js';
 import { WireEvent } from '../types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -22,6 +26,7 @@ export interface WebServerOptions {
   session: WireSession;
   breakpointEngine: BreakpointEngine;
   mockEngine?: MockEngine;
+  chaosEngine?: ChaosEngine;
   port?: number;
   publicDir?: string;
 }
@@ -31,6 +36,7 @@ export class WebServer {
   private session: WireSession;
   private breakpointEngine: BreakpointEngine;
   private mockEngine: MockEngine;
+  private chaosEngine: ChaosEngine;
   private port: number;
   private publicDir: string;
   private sseClients: Set<http.ServerResponse> = new Set();
@@ -39,12 +45,17 @@ export class WebServer {
     this.session = options.session;
     this.breakpointEngine = options.breakpointEngine;
     this.mockEngine = options.mockEngine || new MockEngine();
+    this.chaosEngine = options.chaosEngine || new ChaosEngine();
     this.port = options.port || 4400;
     this.publicDir = options.publicDir || path.resolve(__dirname, '../../public');
 
     // Subscribe to session events and broadcast via SSE
     this.session.on('event', (event: WireEvent) => {
       this.broadcastSse({ type: 'event', data: event, cost: this.session.getCostEvaluation() });
+    });
+
+    this.session.on('security', (event: WireEvent) => {
+      this.broadcastSse({ type: 'security_alert', data: event });
     });
 
     this.breakpointEngine.on('hit', (hit) => {
@@ -57,6 +68,14 @@ export class WebServer {
 
     this.breakpointEngine.on('alert', (alert) => {
       this.broadcastSse({ type: 'breakpoint_alert', data: alert });
+    });
+
+    this.chaosEngine.on('fault_injected', (fault) => {
+      this.broadcastSse({ type: 'chaos_fault', data: fault });
+    });
+
+    this.chaosEngine.on('delay_injected', (data) => {
+      this.broadcastSse({ type: 'chaos_delay', data });
     });
   }
 
@@ -107,7 +126,7 @@ export class WebServer {
     const pathname = url.pathname;
     const method = req.method?.toUpperCase();
 
-    // Enable CORS for flexibility
+    // Enable CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -127,6 +146,20 @@ export class WebServer {
     if (pathname === '/api/session' && method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(this.session.exportJson()));
+      return;
+    }
+
+    if (pathname === '/api/eval' && method === 'GET') {
+      const evaluation = TrajectoryEvaluator.evaluate(this.session.exportJson());
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(evaluation));
+      return;
+    }
+
+    if (pathname === '/api/redact' && method === 'POST') {
+      const sanitized = this.session.exportJson({ redact: true });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(sanitized));
       return;
     }
 
@@ -163,6 +196,7 @@ export class WebServer {
       return;
     }
 
+    // Mock API
     if (pathname === '/api/mocks' && method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(this.mockEngine.getMocks()));
@@ -183,6 +217,40 @@ export class WebServer {
         const ok = this.mockEngine.removeMock(data.id);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok, mocks: this.mockEngine.getMocks() }));
+      });
+      return;
+    }
+
+    // Chaos API
+    if (pathname === '/api/chaos' && method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(this.chaosEngine.getRules()));
+      return;
+    }
+
+    if (pathname === '/api/chaos' && method === 'POST') {
+      this.readJsonBody(req, (data) => {
+        this.chaosEngine.addRule(data);
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, chaosRules: this.chaosEngine.getRules() }));
+      });
+      return;
+    }
+
+    if (pathname === '/api/chaos' && method === 'DELETE') {
+      this.readJsonBody(req, (data) => {
+        const ok = this.chaosEngine.removeRule(data.id);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok, chaosRules: this.chaosEngine.getRules() }));
+      });
+      return;
+    }
+
+    if (pathname === '/api/chaos/toggle' && method === 'POST') {
+      this.readJsonBody(req, (data) => {
+        const ok = this.chaosEngine.toggleRule(data.id, data.enabled);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok, chaosRules: this.chaosEngine.getRules() }));
       });
       return;
     }
@@ -246,6 +314,18 @@ export class WebServer {
         'Content-Disposition': `attachment; filename="agentwire-${this.session.id}.har"`
       });
       res.end(JSON.stringify(har, null, 2));
+      return;
+    }
+
+    if (pathname === '/api/export/test' && method === 'POST') {
+      this.readJsonBody(req, (data) => {
+        const testScript = TestGenerator.generate(this.session.exportJson(), {
+          runner: data.runner || 'node-test',
+          testName: data.testName
+        });
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end(testScript);
+      });
       return;
     }
 

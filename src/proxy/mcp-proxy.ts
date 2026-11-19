@@ -9,12 +9,14 @@ import { EventEmitter } from 'node:events';
 import { WireSession } from '../core/session.js';
 import { BreakpointEngine } from '../core/breakpoints.js';
 import { MockEngine } from '../core/mock-engine.js';
+import { ChaosEngine } from '../core/chaos-engine.js';
 import { WireEvent } from '../types.js';
 
 export interface McpProxyOptions {
   session: WireSession;
   breakpointEngine: BreakpointEngine;
   mockEngine?: MockEngine;
+  chaosEngine?: ChaosEngine;
   command: string;
   args?: string[];
   cwd?: string;
@@ -26,6 +28,7 @@ export class McpProxy extends EventEmitter {
   private session: WireSession;
   private breakpointEngine: BreakpointEngine;
   private mockEngine?: MockEngine;
+  private chaosEngine?: ChaosEngine;
   private childProcess?: ChildProcess;
   private command: string;
   private args: string[];
@@ -40,6 +43,7 @@ export class McpProxy extends EventEmitter {
     this.session = options.session;
     this.breakpointEngine = options.breakpointEngine;
     this.mockEngine = options.mockEngine;
+    this.chaosEngine = options.chaosEngine;
     this.command = options.command;
     this.args = options.args || [];
     this.cwd = options.cwd;
@@ -152,6 +156,29 @@ export class McpProxy extends EventEmitter {
         tool: toolName,
         arguments: args
       });
+
+      // 0. Check Chaos Engine
+      if (this.chaosEngine) {
+        const chaosResult = await this.chaosEngine.evaluate(toolName, args);
+        if (chaosResult.shouldIntercept) {
+          event.isChaosInjected = true;
+          const chaosMsg = {
+            jsonrpc: '2.0',
+            id: msg.id,
+            result: chaosResult.errorResponse
+          };
+          this.session.recordEvent(
+            'chaos_fault',
+            'proxy',
+            `Chaos Injected (${chaosResult.action}) on ${toolName}`,
+            chaosMsg
+          );
+          if (this.agentOutput) {
+            this.agentOutput.write(JSON.stringify(chaosMsg) + '\n');
+          }
+          return;
+        }
+      }
 
       // 1. Check Mock Engine
       if (this.mockEngine) {
