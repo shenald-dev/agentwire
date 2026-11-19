@@ -110,29 +110,39 @@ Set rules to pause the agent *before* it executes risky actions:
 
 ## ⚡ Quick Start
 
-Execute instantly via `npx` with zero installation required:
+Install globally or execute on-demand via `npx`:
+
+```bash
+# Install globally:
+npm install -g @shenald/agentwire
+
+# Or run on-demand via npx:
+npx @shenald/agentwire --help
+```
+
+### Common Workflows
 
 ```bash
 # 1. Wiretap and proxy any stdio MCP server:
-npx agentwire mcp npx -y @modelcontextprotocol/server-filesystem D:\my-project
+agentwire mcp npx -y @modelcontextprotocol/server-filesystem D:\my-project
 
 # 2. Wiretap an HTTP / SSE MCP server or remote LLM endpoint:
-npx agentwire proxy http://localhost:8080/sse --port 4400
+agentwire proxy http://localhost:8080/sse --port 4400
 
 # 3. Evaluate trajectory quality and verify CI/CD SLA:
-npx agentwire eval session.json --threshold 80
+agentwire eval session.json --threshold 80
 
 # 4. Generate an offline reproduction regression test from a recorded failure:
-npx agentwire export-test session.json -o tests/agent-repro.test.js
+agentwire export-test session.json -o tests/agent-repro.test.js
 
 # 5. Compare two session recordings to find where the agent diverged:
-npx agentwire diff session-v1.json session-v2.json
+agentwire diff session-v1.json session-v2.json
 
 # 6. Generate a redacted Markdown diagnostic audit report:
-npx agentwire report session.json --redact --output audit-report.md
+agentwire report session.json --redact --output audit-report.md
 
 # 7. Open the standalone DevTools dashboard:
-npx agentwire ui --port 4400
+agentwire ui --port 4400
 ```
 
 ---
